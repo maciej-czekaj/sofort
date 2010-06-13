@@ -33,6 +33,8 @@ EOF = []
 
 keywords = set(['if','while','else','print'])
 
+WORD = 4
+
 class Word:
 
     def __init__(self,name):
@@ -54,7 +56,90 @@ class Keyword(Word):
     def __init__(self,name):
         Word.__init__(self,name)
 
+class Type:
+    pass
+    
+class ComplexType(Type):
+''' 
+    Complex type is represented as a structure and is larger than signle machine word.
+    It is __always__ kept on the stack and registers are used to keep only it's address.
+    Is should be aligned to machine word boundary.
+    We assume that complex variable's address is stored in edx
+    as opposed to basic type store in eax. Thus indirect loads and stores do not affect
+    direct ones as much. Moreover, it simplifies code generation since we have one default register 
+    for indirect access.
+'''
 
+    def store(self,emitter,stack_index):
+        # No direct stores of complex types
+        pass
+
+    def load(self,emitter,stack_index):
+        # Load pointer to structure
+        emitter.load_pointer(stack_index)        
+
+    def push(self,emitter):
+        ''' Copy contents of complex variable to the top of the stack.
+            Example: 
+                     movl (%edx),%eax # edx points to a variable
+                     pushl %eax
+                     movl 4(%edx),%eax
+                     pushl
+        '''
+        for i in range(self.stack_size):
+            emitter.load_pointed(i)
+            emitter.push_acc()
+            
+
+class BasicType(Type):
+''' 
+    Basic type is representable by single machine word.
+    It is kept on the stack or in the register as a word regardless of declared size.
+    Real size counts when creating arrays.
+'''
+    def store(self,emitter,stack_index):
+        emitter.store_var_int(stack_index)
+
+    def load(self,emitter,stack_index):
+        emitter.load_var_int(stack_index)
+
+    def push(self,emitter):
+        emitter.push_acc()
+    
+class String(ComplexType):
+    # struct string { char * array; int len; }
+    
+    def __init__(self,literal=None):
+        self.literal = literal
+        self.sizeof = 2*WORD
+        self.stack_size = 2
+
+class Int(BasicType):
+
+    def __init__(self,literal=None):
+        self.literal = literal
+        self.sizeof = WORD
+        self.stack_size = 1
+        
+
+class Char(BasicType):
+
+    def __init__(self,literal=None):
+        self.literal = literal
+        self.sizeof = 1 # For now
+        self.stack_size = 1
+        
+class Array(ComplexType):
+    # struct array[T] { T *arr; int len }
+    
+    def __init__(self,element_type,literal=None):
+        self.literal = literal
+        self.element_type = element_type
+        self.sizeof = 2*WORD
+        self.stack_size = 2
+        
+    
+        
 class Scanner:
     
     def __init__(self,file):
@@ -95,6 +180,34 @@ class Scanner:
             return EOF
         else:
             raise ScannerException(self.char)
+
+    def scanEscapeSeq(self):
+        self.getchar()
+        if self.char == '\\':
+            char = '\\'
+        elif self.char == 'n':
+            char = '\n'
+        elif self.char == 't':
+            char = '\t'
+        elif self.char == '"':
+            char = '"'
+        else:
+            char = '\\' + self.char
+        self.getchar()
+        return char
+            
+    def scanStringLiteral(self):
+        self.getchar()
+        chars = []
+        while self.char != '"':
+            if self.char == '\\':
+                chars.append(self.scanEscapeSeq())
+            else:
+                chars.append(self.char)
+                self.getchar()
+        self.getchar() # '"'
+        string = ''.join(chars)
+        return String(string)
         
     def scanDigit(self):
         s = self.char

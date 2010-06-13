@@ -118,7 +118,7 @@ class Emitter:
 
     def store_var_int(self,index):
         self.emit("movl %%eax,-%d(%%ebp)" % ((index+1)*4,))
-
+        
     def label(self,label):
         self.emit("%s:" % label)
 
