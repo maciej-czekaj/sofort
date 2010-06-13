@@ -153,3 +153,7 @@ class Emitter:
         self.emit("cmpl %eax,(%esp)")
         self.emit("setge %al")
         self.emit("movzbl %al,%eax")
+
+	def load_pointer(self):
+		pass
+		

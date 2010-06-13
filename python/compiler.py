@@ -64,7 +64,7 @@ class ComplexType(Type):
     Complex type is represented as a structure and is larger than signle machine word.
     It is __always__ kept on the stack and registers are used to keep only it's address.
     Is should be aligned to machine word boundary.
-    We assume that complex variable's address is stored in edx
+    We assume that complex variable's address is stored in esi
     as opposed to basic type store in eax. Thus indirect loads and stores do not affect
     direct ones as much. Moreover, it simplifies code generation since we have one default register 
     for indirect access.
@@ -81,15 +81,13 @@ class ComplexType(Type):
     def push(self,emitter):
         ''' Copy contents of complex variable to the top of the stack.
             Example: 
-                     movl (%edx),%eax # edx points to a variable
+                     movl (%esi),%eax # edx points to a variable
                      pushl %eax
-                     movl 4(%edx),%eax
-                     pushl
+                     movl 4(%esi),%eax
+                     pushl %eax
         '''
-        for i in range(self.stack_size):
-            emitter.load_pointed(i)
-            emitter.push_acc()
-            
+        emitter.push_complex(self.stack_size)
+        
 
 class BasicType(Type):
     ''' 
