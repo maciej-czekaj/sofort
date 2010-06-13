@@ -2,7 +2,7 @@
 import sys
 from StringIO import StringIO
 
-import emitter
+from emitter import *
 
 class ScannerException(Exception):
     

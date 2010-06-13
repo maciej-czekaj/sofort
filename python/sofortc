@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-./simple1.py | tee 1.s
+./compiler.py | tee 1.s
 if [ $? -eq 0 ]
 then
     gcc -o 1 1.s
