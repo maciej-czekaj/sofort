@@ -60,7 +60,7 @@ class Type:
     pass
     
 class ComplexType(Type):
-''' 
+    ''' 
     Complex type is represented as a structure and is larger than signle machine word.
     It is __always__ kept on the stack and registers are used to keep only it's address.
     Is should be aligned to machine word boundary.
@@ -68,7 +68,7 @@ class ComplexType(Type):
     as opposed to basic type store in eax. Thus indirect loads and stores do not affect
     direct ones as much. Moreover, it simplifies code generation since we have one default register 
     for indirect access.
-'''
+    '''
 
     def store(self,emitter,stack_index):
         # No direct stores of complex types
@@ -92,11 +92,11 @@ class ComplexType(Type):
             
 
 class BasicType(Type):
-''' 
+    ''' 
     Basic type is representable by single machine word.
     It is kept on the stack or in the register as a word regardless of declared size.
     Real size counts when creating arrays.
-'''
+    '''
     def store(self,emitter,stack_index):
         emitter.store_var_int(stack_index)
 
