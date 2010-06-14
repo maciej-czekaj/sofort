@@ -52,12 +52,30 @@ class Func:
             emit(inst)
         emit(FUN_EPILOGUE)
 
+
+class Constants:
+
+    def __init__(self,emitter):
+        self.entries = []
+        self.emitter = emitter
+    
+    def add(self,const):
+        self.entries.append(const)
+        
+    def emit(self):
+        self.emitter('.section .rdata,"dr"')
+        for const in self.entries:
+            self.emitter(const)
+
+       
+
 class Emitter:
     
     def __init__(self):
         self.emit = self.emit_print
         #self.func = None
         self.lbl_num = 0
+        self.constants = Constants(self.emit_ml)
         
     def emit_print(self,s):
         s = s.replace(' ',TAB)
@@ -70,12 +88,11 @@ class Emitter:
     def buffer_func(self,s):
         self.func.append(s)
 
-    def prog_prologue(self):
+    def begin_prog(self):
         self.emit_ml(PROG_PROLOGUE)
         
-    def prog_epilogue(self):
-        pass
-        #self.constants.emit(self.emit_ml)
+    def end_prog(self):
+        self.constants.emit()
         
     def end_func(self):
         self.func.emit(self.emit_print)
@@ -160,4 +177,8 @@ class Emitter:
 
 	def load_pointer(self):
 		pass
+		
+    def add_string_constant(self,const):
+        self.constants.add('.asciz "%s"' % const)
+        
 		

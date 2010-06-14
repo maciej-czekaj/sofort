@@ -246,7 +246,7 @@ class Parser:
         return self.token
 
     def Top(self):
-        self.emitter.prog_prologue()
+        self.emitter.begin_prog()
         self.emitter.begin_func('_main')
         self.stack.append({}) # locals
         while self.token is not EOF:
@@ -256,6 +256,7 @@ class Parser:
             raise ParserException('EOF')
         del self.stack[-1]
         self.emitter.end_func()        
+        self.emitter.end_prog()
         
     def match(self,tok):
         if self.token == tok:
