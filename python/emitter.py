@@ -58,7 +58,7 @@ class Emitter:
         self.emit = self.emit_print
         #self.func = None
         self.lbl_num = 0
-    
+        
     def emit_print(self,s):
         s = s.replace(' ',TAB)
         print TAB + s
@@ -72,6 +72,9 @@ class Emitter:
 
     def prog_prologue(self):
         self.emit_ml(PROG_PROLOGUE)
+        
+    def prog_epilogue(self):
+        #self.constants.emit(self.emit_ml)
         
     def end_func(self):
         self.func.emit(self.emit_print)

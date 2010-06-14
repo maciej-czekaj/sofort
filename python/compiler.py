@@ -105,13 +105,18 @@ class BasicType(Type):
         emitter.push_acc()
     
 class String(ComplexType):
-    # struct string { char * array; int len; }
+    # struct string { char * arr; int len; }
     
     def __init__(self,literal=None):
         self.literal = literal
         self.sizeof = 2*WORD
         self.stack_size = 2
 
+class StringLiteral(String):
+
+    def __init__(self,literal):
+        String.__init__(self,literal)
+        
 class Int(BasicType):
 
     def __init__(self,literal=None):
