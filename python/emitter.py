@@ -74,6 +74,7 @@ class Emitter:
         self.emit_ml(PROG_PROLOGUE)
         
     def prog_epilogue(self):
+        pass
         #self.constants.emit(self.emit_ml)
         
     def end_func(self):
