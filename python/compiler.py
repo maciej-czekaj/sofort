@@ -461,32 +461,35 @@ class Parser:
         
         
     def ArithmeticExpression(self):
-        self.Product()
+        left_type = self.Product()
         while True:
             if self.token == '+':
-                emit = self.emitter.pop_add_int
+                op = 'add'
             elif self.token == '-':
-                emit = self.emitter.pop_sub_int
+                op = 'sub'
             else:
                 break
-            self.emitter.push_acc()
+            left_type.push(self.emitter)
             self.next()
-            self.Product()
-            emit()
+            right_type = self.Product()
+			self.check_op(left_type,right_type,self.token)
+            self.do_operation(right_type,op)
             
     def Product(self):
-        self.Factor()
+        left_type = self.Factor()
         while True:
             if self.token == '*':
-                emit = self.emitter.pop_mul_int
+				op = 'mul'
             elif self.token == '/':
-                emit = self.emitter.pop_div_int
+				op = 'div'
             else:
                 break
-            self.emitter.push_acc()
+			left_type.push(self.emitter)
             self.next()
-            self.Factor()
-            emit()
+            right_type = self.Factor()
+			self.check_op(left_type,right_type,self.token)
+            self.do_operation(right_type,op)
+		return left_type
 
     def Factor(self):
         if self.match('-'):  # unary minus
@@ -520,13 +523,17 @@ class Parser:
             if op:
                 op(self.emitter)
             else:
-                raise ParserExpression('Operation "%s" not supported by type "%s"' % (operation,type))
+                raise ParserException('Operation "%s" not supported by type "%s"' % (operation,type))
             
     def get_var(self,name):
         try:
             return self.stack[-1][name]
         except KeyError:
             raise ParserException('Unknown variable %s' % name)
+	
+	def check_op(self,left,right,op):
+		if left != right:
+			raise ParserException('Incompatible types in %s %s %s',left,op,right)
 
 
 def main():
