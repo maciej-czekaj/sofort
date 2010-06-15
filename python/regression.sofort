@@ -1,0 +1,13 @@
+
+
+factorial = 5
+n = factorial - 1
+while n >= 1 {
+    factorial = factorial * n
+    n = n - 1
+}
+
+if factorial / 2 < 3 
+    print factorial / 2
+else
+    print factorial 

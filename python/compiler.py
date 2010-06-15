@@ -3,36 +3,17 @@ import sys
 from StringIO import StringIO
 
 from emitter import *
+from scanner import *
 
-
-class ScannerException(Exception):
-    
-    def __init__(self,char,file=None,line=None):
-        Exception.__init__(self,'Illegar char %s' % repr(char))
 
 class ParserException(Exception):
     
-    def __init__(self,msg,file='',line=''):
-        Exception.__init__(self,'%s:%s: %s' % (file,line,msg))
+    def __init__(self,msg,file='',line='',col='',buffer=None):
+        s = '%s:%s:%s: %s' % (file,line,col,msg)
+        if buffer:
+            s += "\n" + buffer
+        Exception.__init__(self,s)
 
-
-
-digits = list('0123456789')
-    
-letters = map(chr,range(ord('a'),ord('z')+1)) + map(chr,range(ord('A'),ord('Z')+1))
-
-whitespace = list(" \t\n\r")
-    
-operands = list('+-*/=<>')
-
-parens = list('(){}')
-
-
-ops_or_parens = operands + parens
-
-EOF = []
-
-keywords = set(['if','while','else','print'])
 
 WORD = 4
 
@@ -66,45 +47,6 @@ class Locals:
     def __getitem__(self,name):
         return self.vars[name]
 
-# Tokens
-
-class Token:
-    pass
-
-class StringLiteral(Token):
-
-    def __init__(self,literal):
-        self.value = literal
-
-
-class IntLiteral(Token):
-
-    def __init__(self,literal):
-        self.value = literal
-        
-class Word(Token):
-
-    def __init__(self,name):
-        self.value = name
-
-    def __eq__(self,other):
-        try:
-            return self.value == other or self.value == other.value
-        except AttributeError:
-            return False
-    
-    def __str__(self):
-        return str(self.value)
-
-class Ident(Word):
-
-    def __init__(self,name):
-        Word.__init__(self,name)
-
-class Keyword(Word):
-    
-    def __init__(self,name):
-        Word.__init__(self,name)
 
 # Types
 
@@ -132,10 +74,9 @@ class Type:
     def __ne__(self,other):
         return not isinstance(self,other.__class__)
 
-    @classmethod
-    def get_operation(cls,operation):
+    def get_operation(self,operation):
         opname = 'op_'+operation
-        return getattr(cls,opname,None)
+        return getattr(self,opname,None)
 
 
 class ComplexType(Type):
@@ -203,7 +144,7 @@ class Int(BasicType):
     name = 'int'
     supported_operations = 'add sub div mul lt gt le ge eq ne'.split()
 
-    def __init__(self,literal=None):
+    def __init__(self):
         self.literal = literal
         self.sizeof = WORD
         self.stack_size = 1
@@ -211,14 +152,26 @@ class Int(BasicType):
     def op_neg(self,emitter):
         emitter.neg_acc_int()
         
+    def op_add(self,emitter):
+        emitter.pop_add_int()
+
+    def op_sub(self,emitter):
+        emitter.pop_sub_int()
+
+    def op_mul(self,emitter):
+        emitter.pop_mul_int()
+        
+    def op_div(self,emitter):
+        emitter.pop_div_int()
     
+
 class IntConstant(Int):
     
     def __init__(self,literal):
         Int.__init__(self,literal)
     
     def load(self,emitter):
-        emitter.load_imm_int(literal)
+        emitter.load_imm_int(self.literal)
 
 IntConstant.store = None # unsupported operation
 
@@ -237,97 +190,6 @@ class Array(ComplexType):
         self.element_type = element_type
         self.sizeof = 2*WORD
         self.stack_size = 2
-        
-    
-        
-class Scanner:
-    
-    def __init__(self,file):
-        self.token = None
-        self.file = file
-        self.line = 1
-        self.col = 0
-        self.getchar()
-        
-    def getchar(self):
-        self.char = self.file.read(1)
-        self.col += 1
-
-    def skipwhite(self):
-        while self.char in whitespace:
-            if self.char == "\n":
-                self.line += 1
-            self.getchar()
-    
-    def scan(self):
-        self.skipwhite()
-        if self.char in digits:
-            return self.scanNumber()
-        elif self.char in letters:
-            return self.scanIdentifier()
-        elif self.char in ['<','>']:
-            token = self.char 
-            self.getchar()
-            if self.char == '=':
-                token = token + '='
-                self.getchar()
-            return token
-        elif self.char in ops_or_parens:
-            token = self.char 
-            self.getchar()
-            return token
-        elif self.char == '':
-            return EOF
-        else:
-            raise ScannerException(self.char)
-
-    def scanEscapeSeq(self):
-        self.getchar()
-        if self.char == '\\':
-            char = '\\'
-        elif self.char == 'n':
-            char = '\n'
-        elif self.char == 't':
-            char = '\t'
-        elif self.char == '"':
-            char = '"'
-        else:
-            char = '\\' + self.char
-        self.getchar()
-        return char
-            
-    def scanStringLiteral(self):
-        self.getchar()
-        chars = []
-        while self.char != '"':
-            if self.char == '\\':
-                chars.append(self.scanEscapeSeq())
-            else:
-                chars.append(self.char)
-                self.getchar()
-        self.getchar() # '"'
-        string = ''.join(chars)
-        return StringLiteral(string)
-        
-    def scanNumber(self):
-        s = self.char
-        self.getchar()
-        while self.char in digits:
-            s += self.char
-            self.getchar()
-        return int(s)
-        
-    def scanIdentifier(self):
-        id = [self.char]
-        self.getchar()
-        while self.char in letters:
-            id.append(self.char)
-            self.getchar()
-        id = ''.join(id)
-        if id in keywords:
-            return Keyword(id)
-        else:
-            return Ident(id)
 
         
 class Parser:
@@ -363,7 +225,7 @@ class Parser:
         
     def expect(self,tok):
         if self.token != tok:
-            raise ParserException(tok)
+            raise ParserException('Expected "%s"'%tok,*self.scanner.pos())
         return self.next()
         
     def Statement(self):
@@ -378,7 +240,7 @@ class Parser:
         elif self.token == '{':
             self.Block()
         else:
-            raise ParserException('statement')
+            raise ParserException('Expected statement',*self.scanner.pos())
 
     def While(self):
         self.next()
@@ -472,30 +334,30 @@ class Parser:
             left_type.push(self.emitter)
             self.next()
             right_type = self.Product()
-			self.check_op(left_type,right_type,self.token)
+            self.check_op(left_type,right_type,op)
             self.do_operation(right_type,op)
+        return left_type
             
     def Product(self):
         left_type = self.Factor()
         while True:
             if self.token == '*':
-				op = 'mul'
+                op = 'mul'
             elif self.token == '/':
-				op = 'div'
+                op = 'div'
             else:
                 break
-			left_type.push(self.emitter)
+            left_type.push(self.emitter)
             self.next()
             right_type = self.Factor()
-			self.check_op(left_type,right_type,self.token)
+            self.check_op(left_type,right_type,op)
             self.do_operation(right_type,op)
-		return left_type
+        return left_type
 
     def Factor(self):
         if self.match('-'):  # unary minus
             type = self.UnaryExpression()
             self.do_operation(type,'neg')
-            #self.emitter.neg_acc_int()
         else:
             type = self.UnaryExpression()
         return type
@@ -530,10 +392,11 @@ class Parser:
             return self.stack[-1][name]
         except KeyError:
             raise ParserException('Unknown variable %s' % name)
-	
-	def check_op(self,left,right,op):
-		if left != right:
-			raise ParserException('Incompatible types in %s %s %s',left,op,right)
+    
+    def check_op(self,left,right,op):
+        if left != right:
+            msg = 'Incompatible types in %s %s %s' % (left,op,right)
+            raise ParserException(msg,*self.scanner.pos())
 
 
 def main():
