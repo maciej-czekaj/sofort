@@ -4,6 +4,7 @@ from StringIO import StringIO
 
 from emitter import *
 
+
 class ScannerException(Exception):
     
     def __init__(self,char,file=None,line=None):
@@ -11,8 +12,8 @@ class ScannerException(Exception):
 
 class ParserException(Exception):
     
-    def __init__(self,tok,file=None,line=None):
-        Exception.__init__(self,'Expected %s' % repr(tok))
+    def __init__(self,msg,file='',line=''):
+        Exception.__init__(self,'%s:%s: %s' % (file,line,msg))
 
 
 
@@ -35,7 +36,53 @@ keywords = set(['if','while','else','print'])
 
 WORD = 4
 
-class Word:
+class LocalVar:
+    
+    def __init__(self,name,type):
+        self.name = name
+        self.type = type
+        #stack_index is assigned by Locals object
+    
+    def store(self,emitter):
+        self.type.store(emitter,self.stack_index)
+        
+    def load(self,emitter):
+        self.type.load(emitter,self.stack_index)
+
+class Locals:
+    
+    def __init__(self):
+        self.stack_size = 0
+        self.vars = {}
+    
+    def __contains__(self,name):
+        return name in self.vars
+        
+    def add(self,var):
+        self.vars[var.name] = var
+        var.stack_index = self.stack_size
+        self.stack_size += var.type.stack_size
+        
+    def __getitem__(self,name):
+        return self.vars[name]
+
+# Tokens
+
+class Token:
+    pass
+
+class StringLiteral(Token):
+
+    def __init__(self,literal):
+        self.value = literal
+
+
+class IntLiteral(Token):
+
+    def __init__(self,literal):
+        self.value = literal
+        
+class Word(Token):
 
     def __init__(self,name):
         self.value = name
@@ -45,6 +92,9 @@ class Word:
             return self.value == other or self.value == other.value
         except AttributeError:
             return False
+    
+    def __str__(self):
+        return str(self.value)
 
 class Ident(Word):
 
@@ -56,9 +106,38 @@ class Keyword(Word):
     def __init__(self,name):
         Word.__init__(self,name)
 
+# Types
+
+OPERATIONS = {
+    '+' : 'add',
+    '-' : 'sub',
+    '/' : 'div',
+    '*' : 'mul',
+    '<' : 'lt',
+    '>' : 'gt',
+    '<=' : 'le',
+    '>=' : 'ge',
+    '==' : 'eq',
+    '!=' : 'ne',
+}
+
 class Type:
-    pass
     
+    def __str__(self):
+        return self.name
+        
+    def __eq__(self,other):
+        return isinstance(self,other.__class__)
+
+    def __ne__(self,other):
+        return not isinstance(self,other.__class__)
+
+    @classmethod
+    def get_operation(cls,operation):
+        opname = 'op_'+operation
+        return getattr(cls,opname,None)
+
+
 class ComplexType(Type):
     ''' 
     Complex type is represented as a structure and is larger than signle machine word.
@@ -107,23 +186,41 @@ class BasicType(Type):
 class String(ComplexType):
     # struct string { char * arr; int len; }
     
+    name = 'string'
+    
     def __init__(self,literal=None):
         self.literal = literal
         self.sizeof = 2*WORD
         self.stack_size = 2
 
-class StringLiteral(String):
+class StringConstant(String):
 
     def __init__(self,literal):
         String.__init__(self,literal)
         
 class Int(BasicType):
 
+    name = 'int'
+    supported_operations = 'add sub div mul lt gt le ge eq ne'.split()
+
     def __init__(self,literal=None):
         self.literal = literal
         self.sizeof = WORD
         self.stack_size = 1
         
+    def op_neg(self,emitter):
+        emitter.neg_acc_int()
+        
+    
+class IntConstant(Int):
+    
+    def __init__(self,literal):
+        Int.__init__(self,literal)
+    
+    def load(self,emitter):
+        emitter.load_imm_int(literal)
+
+IntConstant.store = None # unsupported operation
 
 class Char(BasicType):
 
@@ -165,7 +262,7 @@ class Scanner:
     def scan(self):
         self.skipwhite()
         if self.char in digits:
-            return self.scanDigit()
+            return self.scanNumber()
         elif self.char in letters:
             return self.scanIdentifier()
         elif self.char in ['<','>']:
@@ -210,9 +307,9 @@ class Scanner:
                 self.getchar()
         self.getchar() # '"'
         string = ''.join(chars)
-        return String(string)
+        return StringLiteral(string)
         
-    def scanDigit(self):
+    def scanNumber(self):
         s = self.char
         self.getchar()
         while self.char in digits:
@@ -248,7 +345,7 @@ class Parser:
     def Top(self):
         self.emitter.begin_prog()
         self.emitter.begin_func('_main')
-        self.stack.append({}) # locals
+        self.stack.append(Locals())
         while self.token is not EOF:
             self.Statement()
             #self.emitter.print_int()
@@ -318,21 +415,31 @@ class Parser:
             self.Statement()
             label1 = label2 # emit label2 below instead of label1
         self.emitter.label(label1)
-
         
     def Assignment(self):
+        ''' Assignment acts as both declaration and ordinary assignment.
+            x = <Expr>
+            If x is first used, it is declaration of var x of type(Expr).
+            Otherwise, it is ordinary assignment where type(x) must match type(Expr).
+        '''
         id = self.token.value
         locals = self.stack[-1]
         self.next()
         self.expect('=')
-        self.Expression()
-        if not locals.has_key(id):
-            locals[id] = len(locals)
-            self.emitter.alloca(4*len(locals))
-        self.emitter.store_var_int(locals[id])
+        type = self.Expression()
+        if not id in locals:
+            var = LocalVar(id,type)
+            locals.add(var)
+            self.emitter.alloca(WORD*locals.stack_size)
+        else:
+            var = locals[id]
+            if var.type != type:
+                raise ParserException('Illegal assignment of %s to variable %s' % (str(type),str(var.type)))
+        var.store(self.emitter) #self.emitter.store_var_int(locals[id])
 
     def Expression(self):
         self.RelationalExpression()
+        return Int()
         
     def RelationalExpression(self):
         self.ArithmeticExpression()
@@ -383,29 +490,43 @@ class Parser:
 
     def Factor(self):
         if self.match('-'):  # unary minus
-            self.UnaryExpression()
-            self.emitter.neg_acc_int()
+            type = self.UnaryExpression()
+            self.do_operation(type,'neg')
+            #self.emitter.neg_acc_int()
         else:
-            self.UnaryExpression()
-    
+            type = self.UnaryExpression()
+        return type
+            
     def UnaryExpression(self):
         if isinstance(self.token,Ident):
-            self.emitter.load_var_int(self.get_var(self.token.value))
+            var = self.get_var(self.token.value)
+            var.load(self.emitter)
             self.next()
+            return var.type
         elif isinstance(self.token,int):
-            self.emitter.load_imm_int(self.token)
+            type = IntConstant(self.token)
+            type.load(self.emitter) #self.emitter.load_imm_int(self.token)
             self.next()
+            return type
         elif self.match('('):
-            self.Expression()
+            type = self.Expression()
             self.expect(')')
+            return type
         else:
-            raise ParserException('factor')
+            raise ParserException('Unexpected token %s' % str(self.token))
 
+    def do_operation(self,type,operation):
+            op = type.get_operation(operation)
+            if op:
+                op(self.emitter)
+            else:
+                raise ParserExpression('Operation "%s" not supported by type "%s"' % (operation,type))
+            
     def get_var(self,name):
         try:
             return self.stack[-1][name]
         except KeyError:
-            raise ParserException('variable')
+            raise ParserException('Unknown variable %s' % name)
 
 
 def main():
