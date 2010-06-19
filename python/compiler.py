@@ -85,7 +85,6 @@ class Type:
         return getattr(self,opname,None)
 
     def union(self,other):
-        print self,other
         if isinstance(self,other.__class__):
             return other
         elif isinstance(other,self.__class__):
@@ -177,19 +176,36 @@ class Int(BasicType):
     def op_div(self,emitter):
         emitter.pop_div_int()
      
+    def op_ge(self,emitter):
+        emitter.pop_ge_int()
+        
+    def op_gt(self,emitter):
+        emitter.pop_gt_int()
+
+    def op_le(self,emitter):
+        emitter.pop_le_int()
+        
+    def op_lt(self,emitter):
+        emitter.pop_lt_int()
+
 
 class IntConstant(Int):
     
     name = 'IntConstant'
-    
+   
     def __init__(self,literal):
         Int.__init__(self)
         self.literal = literal
    
-    def load(self,emitter):
-        emitter.load_imm_int(self.literal)
+    def load(self,emitter,stack_index=None):
+        if stack_index:
+            Int.load(self,emitter,stack_index)
+        else:
+            emitter.load_imm_int(self.literal)
 
-IntConstant.store = None # unsupported operation
+#class Unsupported:
+#    pass
+#IntConstant.store = Unsupported() # unsupported operation
 
 class Char(BasicType):
 
@@ -229,7 +245,7 @@ class Parser:
 
     def _Top(self):
         self.emitter.begin_prog()
-        self.emitter.begin_func('_main')
+        self.emitter.begin_func('main')
         self.stack.append(Locals())
         while self.token is not EOF:
             self.Statement()
@@ -337,7 +353,6 @@ class Parser:
             self.check_op(left,right,op)
             self.do_operation(right,op)
             left = left.union(right)
-        print left
         return left
         
         

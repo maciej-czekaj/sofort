@@ -28,7 +28,7 @@ FUN_EPILOGUE=r"""
 PRINT_INT="""
 	pushl	%eax
 	pushl	$Format
-	call	_printf
+	call	printf
 	subl	$8,%esp
 """
 
@@ -64,7 +64,7 @@ class Constants:
         self.entries.append(const)
         
     def emit(self):
-        self.emitter('.section .rdata,"dr"')
+        self.emitter('.data')
         for const in self.entries:
             self.emitter(const)
            
