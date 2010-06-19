@@ -85,6 +85,7 @@ class Type:
         return getattr(self,opname,None)
 
     def union(self,other):
+        print self,other
         if isinstance(self,other.__class__):
             return other
         elif isinstance(other,self.__class__):
@@ -154,7 +155,7 @@ class StringConstant(String):
         
 class Int(BasicType):
 
-    name = 'int'
+    name = 'Int'
     supported_operations = 'add sub div mul lt gt le ge eq ne'.split()
 
     def __init__(self):
@@ -178,6 +179,8 @@ class Int(BasicType):
      
 
 class IntConstant(Int):
+    
+    name = 'IntConstant'
     
     def __init__(self,literal):
         Int.__init__(self)
