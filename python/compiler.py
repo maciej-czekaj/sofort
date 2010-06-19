@@ -63,21 +63,34 @@ OPERATIONS = {
     '!=' : 'ne',
 }
 
+RELOPS = {
+    '<' : 'lt',
+    '>' : 'gt',
+    '<=' : 'le',
+    '>=' : 'ge',
+    '==' : 'eq',
+    '!=' : 'ne',
+}
+
 class Type:
     
     def __str__(self):
         return self.name
         
-    def __eq__(self,other):
-        return isinstance(self,other.__class__)
-
-    def __ne__(self,other):
-        return not isinstance(self,other.__class__)
+    def typeof(self,other):
+        return isinstance(self,other.__class__) or isinstance(other,self.__class__) 
 
     def get_operation(self,operation):
         opname = 'op_'+operation
         return getattr(self,opname,None)
 
+    def union(self,other):
+        if isinstance(self,other.__class__):
+            return other
+        elif isinstance(other,self.__class__):
+            return self
+        else:
+            return None
 
 class ComplexType(Type):
     ''' 
@@ -145,7 +158,6 @@ class Int(BasicType):
     supported_operations = 'add sub div mul lt gt le ge eq ne'.split()
 
     def __init__(self):
-        self.literal = literal
         self.sizeof = WORD
         self.stack_size = 1
         
@@ -163,13 +175,14 @@ class Int(BasicType):
         
     def op_div(self,emitter):
         emitter.pop_div_int()
-    
+     
 
 class IntConstant(Int):
     
     def __init__(self,literal):
-        Int.__init__(self,literal)
-    
+        Int.__init__(self)
+        self.literal = literal
+   
     def load(self,emitter):
         emitter.load_imm_int(self.literal)
 
@@ -205,6 +218,13 @@ class Parser:
         return self.token
 
     def Top(self):
+        try:
+            self._Top()
+        except :
+            print self.scanner.pos()
+            raise #ParserException('Error :%s' % str(e),*self.scanner.pos())
+
+    def _Top(self):
         self.emitter.begin_prog()
         self.emitter.begin_func('_main')
         self.stack.append(Locals())
@@ -295,31 +315,27 @@ class Parser:
             self.emitter.alloca(WORD*locals.stack_size)
         else:
             var = locals[id]
-            if var.type != type:
+            if not var.type.typeof(type):
                 raise ParserException('Illegal assignment of %s to variable %s' % (str(type),str(var.type)))
         var.store(self.emitter) #self.emitter.store_var_int(locals[id])
 
     def Expression(self):
-        self.RelationalExpression()
-        return Int()
+        return self.RelationalExpression()
         
     def RelationalExpression(self):
-        self.ArithmeticExpression()
+        left = self.ArithmeticExpression()
         while True:
-            if self.token == '<':
-                emit = self.emitter.pop_lt_int
-            elif self.token == '>':
-                emit = self.emitter.pop_gt_int
-            elif self.token == '<=':
-                emit = self.emitter.pop_le_int
-            elif self.token == '>=':
-                emit = self.emitter.pop_ge_int
-            else:
+            op = RELOPS.get(self.token,None)
+            if not op:
                 break
-            self.emitter.push_acc()
+            left.push(self.emitter)
             self.next()
-            self.ArithmeticExpression()
-            emit()
+            right = self.ArithmeticExpression()
+            self.check_op(left,right,op)
+            self.do_operation(right,op)
+            left = left.union(right)
+        print left
+        return left
         
         
     def ArithmeticExpression(self):
@@ -336,6 +352,7 @@ class Parser:
             right_type = self.Product()
             self.check_op(left_type,right_type,op)
             self.do_operation(right_type,op)
+            left_type = left_type.union(right_type)
         return left_type
             
     def Product(self):
@@ -352,6 +369,7 @@ class Parser:
             right_type = self.Factor()
             self.check_op(left_type,right_type,op)
             self.do_operation(right_type,op)
+            left_type = left_type.union(right_type)
         return left_type
 
     def Factor(self):
@@ -394,7 +412,7 @@ class Parser:
             raise ParserException('Unknown variable %s' % name)
     
     def check_op(self,left,right,op):
-        if left != right:
+        if not left.typeof(right):
             msg = 'Incompatible types in %s %s %s' % (left,op,right)
             raise ParserException(msg,*self.scanner.pos())
 

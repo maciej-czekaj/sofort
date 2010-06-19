@@ -1,6 +1,7 @@
 
+
 PROG_PROLOGUE=r"""
-.section .rdata,"dr"
+.data
 Format:
 	.ascii "%d\n"  # format string for printf
 """
@@ -66,8 +67,7 @@ class Constants:
         self.emitter('.section .rdata,"dr"')
         for const in self.entries:
             self.emitter(const)
-
-       
+           
 
 class Emitter:
     

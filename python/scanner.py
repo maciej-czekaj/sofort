@@ -19,12 +19,18 @@ parens = list('(){}')
 
 ops_or_parens = operands + parens
 
-EOF = []
+EOF = ''
 
 keywords = set(['if','while','else','print'])
 
 class Token:
-    pass
+    
+    def __hash__(self):
+        return self.value.__hash__()
+        
+    def __cmp__(self,other):
+        return self.value.__cmp__(other.value)
+
 
 class StringLiteral(Token):
 
