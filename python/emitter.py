@@ -71,16 +71,20 @@ class Constants:
 
 class Emitter:
     
-    def __init__(self):
+    def __init__(self,file):
         self.emit = self.emit_print
         #self.func = None
         self.lbl_num = 0
         self.constants = Constants(self.emit_ml)
+        self.file = file
         
     def emit_print(self,s):
         s = s.replace(' ',TAB)
-        print TAB + s
-    
+        print >> self.file, TAB + s
+ 
+    def emit_ml(self,s):
+        print >> self.file, s
+           
     def begin_func(self,name):
         self.func = Func(name,0)
         self.emit = self.buffer_func
@@ -105,9 +109,6 @@ class Emitter:
     def print_int(self):
         self.emit(PRINT_INT)
 
-    def emit_ml(self,s):
-        print s
-    
     def push_acc(self):
         self.emit("pushl %eax")
     

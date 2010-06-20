@@ -2,9 +2,12 @@
 
 factorial = 5
 n = factorial - 1
+print n
 while n >= 1 {
     factorial = factorial * n
     n = n - 1
+    print n
+    print factorial
 }
 
 if factorial / 2 < 3 

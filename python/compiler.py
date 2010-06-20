@@ -4,7 +4,8 @@ from StringIO import StringIO
 
 from emitter import *
 from scanner import *
-
+from os.path import basename
+import re
 
 class ParserException(Exception):
     
@@ -435,12 +436,24 @@ class Parser:
             raise ParserException(msg,*self.scanner.pos())
 
 
+def ifile2ofile(fname):
+    base = re.sub('.sofort$','',fname)
+    return base + '.s'
+
 def main():
-    scanner = Scanner(sys.stdin)
-    parser = Parser(scanner,Emitter())
+    if len(sys.argv) == 2:
+        ifile = open(sys.argv[1],'rb')
+        fname = basename(ifile.name)
+        ofile = open(ifile2ofile(fname),'wb')
+    else:
+        ifile = sys.stdin
+        ofile = sys.stdout
+    scanner = Scanner(ifile)
+    parser = Parser(scanner,Emitter(ofile))
     #import echo
     #echo.echo_class(Parser)
     parser.Top()
+    
     
 def testScanner1():
     f = StringIO('abc / 123 +cd*1')
