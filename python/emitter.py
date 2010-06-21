@@ -1,4 +1,4 @@
-
+from sys import platform as PLAT
 
 PROG_PROLOGUE=r"""
 .data
@@ -25,6 +25,14 @@ FUN_EPILOGUE=r"""
 	ret
 """
 
+if PLAT='cygwin':
+PRINT_INT="""
+	pushl	%eax
+	pushl	$Format
+	call	_printf
+	subl	$8,%esp
+"""
+else:
 PRINT_INT="""
 	pushl	%eax
 	pushl	$Format
@@ -33,6 +41,8 @@ PRINT_INT="""
 """
 
 TAB="\t"
+
+
 
 class Func:
 
