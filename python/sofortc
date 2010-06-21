@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-./compiler.py | tee 1.s
+./compiler.py $1
 if [ $? -eq 0 ]
 then
-    gcc -o 1 1.s
-    ./1.exe
+    base=`basename $1 .sofort`
+    gcc -g -o $base $base.s
 fi

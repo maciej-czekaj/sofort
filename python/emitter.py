@@ -1,5 +1,11 @@
 from sys import platform as PLAT
 
+if PLAT!='linux':
+    mangle=lambda(s): '_'+s
+else:
+    mangle=lambda(s): s
+
+
 PROG_PROLOGUE=r"""
 .data
 Format:
@@ -25,28 +31,15 @@ FUN_EPILOGUE=r"""
 	ret
 """
 
-if PLAT='cygwin':
 PRINT_INT="""
-	pushl	%eax
+	pushl	%%eax
 	pushl	$Format
-	call	_printf
-	subl	$8,%esp
-"""
-else:
-PRINT_INT="""
-	pushl	%eax
-	pushl	$Format
-	call	printf
-	subl	$8,%esp
-"""
+	call	%s
+	subl	$8,%%esp
+""" % mangle('printf')
 
 TAB="\t"
 
-def mangle(name):
-    if PLAT='cygwin':
-        return '_'+name
-    else:
-        return name
 
 class Func:
 
@@ -133,6 +126,7 @@ class Emitter:
     
     def pop_sub_int(self):
         self.emit("subl %eax,(%esp)")
+        self.emit("popl %eax")
         
     def pop_mul_int(self):
         self.emit("imull (%esp)")
@@ -175,26 +169,30 @@ class Emitter:
         self.emit("cmpl %eax,(%esp)")
         self.emit("setl %al")
         self.emit("movzbl %al,%eax")
-        
+        self.emit("addl $4,%esp")
+
     def pop_gt_int(self):
         self.emit("cmpl %eax,(%esp)")
         self.emit("setg %al")
         self.emit("movzbl %al,%eax")
+        self.emit("addl $4,%esp")
                 
     def pop_le_int(self):
         self.emit("cmpl %eax,(%esp)")
         self.emit("setle %al")
         self.emit("movzbl %al,%eax")
+        self.emit("addl $4,%esp")
         
     def pop_ge_int(self):
         self.emit("cmpl %eax,(%esp)")
         self.emit("setge %al")
         self.emit("movzbl %al,%eax")
+        self.emit("addl $4,%esp")
 
-	def load_pointer(self):
-		pass
-		
+    def load_pointer(self):
+        pass
+        
     def add_string_constant(self,const):
         self.constants.add('.asciz "%s"' % const)
         
-		
+

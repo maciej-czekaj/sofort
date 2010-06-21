@@ -6,6 +6,7 @@ from emitter import *
 from scanner import *
 from os.path import basename
 import re
+from subprocess import check_call
 
 class ParserException(Exception):
     
@@ -436,24 +437,31 @@ class Parser:
             raise ParserException(msg,*self.scanner.pos())
 
 
-def ifile2ofile(fname):
+def outputfiles(fname):
+    fname = basename(fname)
     base = re.sub('.sofort$','',fname)
-    return base + '.s'
+    return base + '.s',base
 
+def do_gcc(asm_file,output):
+    cmd = "gcc -o %s %s" % (output,asm_file)
+    process = check_call(cmd, shell=True)
+    
 def main():
     if len(sys.argv) == 2:
-        ifile = open(sys.argv[1],'rb')
-        fname = basename(ifile.name)
-        ofile = open(ifile2ofile(fname),'wb')
+        src = open(sys.argv[1],'rb')
+        asmfile,binfile = outputfiles(src.name)
+        asm = open(asmfile,'wb')
     else:
-        ifile = sys.stdin
-        ofile = sys.stdout
-    scanner = Scanner(ifile)
-    parser = Parser(scanner,Emitter(ofile))
+        src = sys.stdin
+        asm = sys.stdout
+    scanner = Scanner(src)
+    parser = Parser(scanner,Emitter(asm))
     #import echo
     #echo.echo_class(Parser)
     parser.Top()
-    
+    asm.close()
+    src.close()
+    #do_gcc(asmfile,binfile)
     
 def testScanner1():
     f = StringIO('abc / 123 +cd*1')
