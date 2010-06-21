@@ -10,7 +10,7 @@ while n >= 1 {
     print factorial
 }
 
-if factorial / 2 < 3 
+if factorial / 2 >= 3*2 
     print factorial / 2
 else
     print factorial 

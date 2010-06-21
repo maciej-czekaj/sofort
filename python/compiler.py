@@ -190,24 +190,23 @@ class Int(BasicType):
     def op_lt(self,emitter):
         emitter.pop_lt_int()
 
-
-class IntConstant(Int):
+    def load_literal(self,emitter,literal):
+        emitter.load_imm_int(literal)
     
-    name = 'IntConstant'
+# class IntConstant(Int):
+    
+    # name = 'IntConstant'
    
-    def __init__(self,literal):
-        Int.__init__(self)
-        self.literal = literal
+    # def __init__(self,literal):
+        # Int.__init__(self)
+        # self.literal = literal
    
-    def load(self,emitter,stack_index=None):
-        if stack_index:
-            Int.load(self,emitter,stack_index)
-        else:
-            emitter.load_imm_int(self.literal)
+    # def load(self,emitter):
+        # emitter.load_imm_int(self.literal)
 
-#class Unsupported:
-#    pass
-#IntConstant.store = Unsupported() # unsupported operation
+# class Unsupported:
+    # pass
+# IntConstant.store = Unsupported() # unsupported operation
 
 class Char(BasicType):
 
@@ -338,6 +337,8 @@ class Parser:
             var = locals[id]
             if not var.type.typeof(type):
                 raise ParserException('Illegal assignment of %s to variable %s' % (str(type),str(var.type)))
+        # The type of a variable may change in the future
+        # when a constant is promoted to non constant value.
         var.store(self.emitter) #self.emitter.store_var_int(locals[id])
 
     def Expression(self):
@@ -407,8 +408,8 @@ class Parser:
             self.next()
             return var.type
         elif isinstance(self.token,int):
-            type = IntConstant(self.token)
-            type.load(self.emitter) #self.emitter.load_imm_int(self.token)
+            type = Int()
+            type.load_literal(self.emitter,self.token) #self.emitter.load_imm_int(self.token)
             self.next()
             return type
         elif self.match('('):
