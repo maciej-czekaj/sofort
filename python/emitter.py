@@ -42,7 +42,11 @@ PRINT_INT="""
 
 TAB="\t"
 
-
+def mangle(name):
+    if PLAT='cygwin':
+        return '_'+name
+    else:
+        return name
 
 class Func:
 
@@ -58,7 +62,8 @@ class Func:
         self.inst_buffer.append(inst)
     
     def emit(self,emit):
-        emit(FUN_PROLOGUE % (self.name,self.name,self.stack)) # name,name,stack
+        name = mangle(self.name)
+        emit(FUN_PROLOGUE % (name,name,self.stack)) # name,name,stack
         for inst in self.inst_buffer:
             emit(inst)
         emit(FUN_EPILOGUE)
