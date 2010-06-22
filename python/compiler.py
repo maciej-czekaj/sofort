@@ -271,18 +271,34 @@ class Parser:
             raise ParserException('Unexpected token %s' % str(self.token))
 
     def ArrayConstructor():
-        arr_type = self.Expression()
-        
+        if self.match(']'):
+            # Zero-length array
+            # Still a small space is allocated in case of further expansion.
+            arr_subtype = self.Type()
+            array_type = Array(arr_subtype)
+            array_type.alloc(8) # make space for 8 elements
+            array_type.setLength(0)
+            return array_type
+        arr_subtype = self.Expression()
+        # Now we know the array's subtype
+        array_type = Array(arr_subtype)
+        type = arr_subtype
+        length = 1
         while not self.match(']'):
             self.expect(',')
             # allow for extra ',' at the end
             if self.match(']'):
                 break;
+            type.push(self.emitter)
             type = self.Expression()
-            if not arr_type.typeof(type):
+            if not arr_subtype.typeof(type):
                 raise ParserException('Type mismatch in array constructor:  %s and %s.' % 
                     (arr_type,type))
-            
+            length += 1
+        array_type.alloc(length)
+        array_type.setLength(length)
+        # Now we need to load an array
+        
     def do_operation(self,type,operation):
             op = type.get_operation(operation)
             if op:

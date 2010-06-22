@@ -24,31 +24,23 @@ class Type:
 class ComplexType(Type):
     ''' 
     Complex type is represented as a structure and is larger than signle machine word.
-    It is __always__ kept on the stack and registers are used to keep only it's address.
-    Is should be aligned to machine word boundary.
+    It is kept in the heap and it's pointer in kept on the stack. Registers are used to access the pointer.
     We assume that complex variable's address is stored in esi
-    as opposed to basic type store in eax. Thus indirect loads and stores do not affect
+    as opposed to basic type stored in eax. Thus indirect loads and stores do not affect
     direct ones as much. Moreover, it simplifies code generation since we have one default register 
     for indirect access.
     '''
 
     def store(self,emitter,stack_index):
         # No direct stores of complex types
-        pass
+        emitter.store_pointer(stack_index)        
 
     def load(self,emitter,stack_index):
         # Load pointer to structure
         emitter.load_pointer(stack_index)        
 
     def push(self,emitter):
-        ''' Copy contents of complex variable to the top of the stack.
-            Example: 
-                     movl (%esi),%eax # edx points to a variable
-                     pushl %eax
-                     movl 4(%esi),%eax
-                     pushl %eax
-        '''
-        emitter.push_complex(self.stack_size)
+        emitter.push_pointer()
         
 
 class BasicType(Type):
@@ -68,26 +60,30 @@ class BasicType(Type):
 
 
 class Array(ComplexType):
-    ''' Array of homogeneous objects: struct array<T> { T *arr; int len }
+    ''' Array of homogeneous objects: <ptr> --> <hdr><n><el_1><el_2>....<el_n>
         It's contents is allocated dynamically.
     '''
     name = 'array'
     def __init__(self,subtype):
         self.subtype = subtype
-        self.sizeof = 2*WORD
-        self.stack_size = 2
-
-class ArrayConstant(ComplexType):
-    ''' C-like array initiated by literal, thus it's size
-        is known at compile time. 
-        struct array_const<T> { T*arr; }
-    '''
-    name = 'array'
-    
-    def __init__(self,subtype,length):
-        self.length = length
         self.sizeof = WORD
         self.stack_size = 1
+        
+    def alloc(self,emitter,length):
+        # Word for header, word for length, rest for contents
+        emitter.call('malloc',2*WORD+length*subtype.sizeof)
+        
+# class ArrayConstant(ComplexType):
+    # ''' C-like array initiated by literal, thus it's size
+        # is known at compile time. 
+        # struct array_const<T> { T*arr; }
+    # '''
+    # name = 'array'
+    
+    # def __init__(self,subtype,length):
+        # self.length = length
+        # self.sizeof = WORD
+        # self.stack_size = 1
 
         
 class String(ComplexType):
