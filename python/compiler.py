@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import sys
 from StringIO import StringIO
-
-from emitter import *
-from scanner import *
 from os.path import basename
 import re
 from subprocess import check_call
+
+from emitter import *
+from scanner import *
+from sofortTypes import *
+
 
 class ParserException(Exception):
     
@@ -16,8 +18,6 @@ class ParserException(Exception):
             s += "\n" + buffer
         Exception.__init__(self,s)
 
-
-WORD = 4
 
 class LocalVar:
     
@@ -50,8 +50,6 @@ class Locals:
         return self.vars[name]
 
 
-# Types
-
 OPERATIONS = {
     '+' : 'add',
     '-' : 'sub',
@@ -74,155 +72,6 @@ RELOPS = {
     '!=' : 'ne',
 }
 
-class Type:
-    
-    def __str__(self):
-        return self.name
-        
-    def typeof(self,other):
-        return isinstance(self,other.__class__) or isinstance(other,self.__class__) 
-
-    def get_operation(self,operation):
-        opname = 'op_'+operation
-        return getattr(self,opname,None)
-
-    def union(self,other):
-        if isinstance(self,other.__class__):
-            return other
-        elif isinstance(other,self.__class__):
-            return self
-        else:
-            return None
-
-class ComplexType(Type):
-    ''' 
-    Complex type is represented as a structure and is larger than signle machine word.
-    It is __always__ kept on the stack and registers are used to keep only it's address.
-    Is should be aligned to machine word boundary.
-    We assume that complex variable's address is stored in esi
-    as opposed to basic type store in eax. Thus indirect loads and stores do not affect
-    direct ones as much. Moreover, it simplifies code generation since we have one default register 
-    for indirect access.
-    '''
-
-    def store(self,emitter,stack_index):
-        # No direct stores of complex types
-        pass
-
-    def load(self,emitter,stack_index):
-        # Load pointer to structure
-        emitter.load_pointer(stack_index)        
-
-    def push(self,emitter):
-        ''' Copy contents of complex variable to the top of the stack.
-            Example: 
-                     movl (%esi),%eax # edx points to a variable
-                     pushl %eax
-                     movl 4(%esi),%eax
-                     pushl %eax
-        '''
-        emitter.push_complex(self.stack_size)
-        
-
-class BasicType(Type):
-    ''' 
-    Basic type is representable by single machine word.
-    It is kept on the stack or in the register as a word regardless of declared size.
-    Real size counts when creating arrays.
-    '''
-    def store(self,emitter,stack_index):
-        emitter.store_var_int(stack_index)
-
-    def load(self,emitter,stack_index):
-        emitter.load_var_int(stack_index)
-
-    def push(self,emitter):
-        emitter.push_acc()
-    
-class String(ComplexType):
-    # struct string { char * arr; int len; }
-    
-    name = 'string'
-    
-    def __init__(self,literal=None):
-        self.literal = literal
-        self.sizeof = 2*WORD
-        self.stack_size = 2
-
-class StringConstant(String):
-
-    def __init__(self,literal):
-        String.__init__(self,literal)
-        
-class Int(BasicType):
-
-    name = 'Int'
-    supported_operations = 'add sub div mul lt gt le ge eq ne'.split()
-
-    def __init__(self):
-        self.sizeof = WORD
-        self.stack_size = 1
-        
-    def op_neg(self,emitter):
-        emitter.neg_acc_int()
-        
-    def op_add(self,emitter):
-        emitter.pop_add_int()
-
-    def op_sub(self,emitter):
-        emitter.pop_sub_int()
-
-    def op_mul(self,emitter):
-        emitter.pop_mul_int()
-        
-    def op_div(self,emitter):
-        emitter.pop_div_int()
-     
-    def op_ge(self,emitter):
-        emitter.pop_ge_int()
-        
-    def op_gt(self,emitter):
-        emitter.pop_gt_int()
-
-    def op_le(self,emitter):
-        emitter.pop_le_int()
-        
-    def op_lt(self,emitter):
-        emitter.pop_lt_int()
-
-    def load_literal(self,emitter,literal):
-        emitter.load_imm_int(literal)
-    
-# class IntConstant(Int):
-    
-    # name = 'IntConstant'
-   
-    # def __init__(self,literal):
-        # Int.__init__(self)
-        # self.literal = literal
-   
-    # def load(self,emitter):
-        # emitter.load_imm_int(self.literal)
-
-# class Unsupported:
-    # pass
-# IntConstant.store = Unsupported() # unsupported operation
-
-class Char(BasicType):
-
-    def __init__(self,literal=None):
-        self.literal = literal
-        self.sizeof = 1 # For now
-        self.stack_size = 1
-        
-class Array(ComplexType):
-    # struct array[T] { T *arr; int len }
-    
-    def __init__(self,element_type,literal=None):
-        self.literal = literal
-        self.element_type = element_type
-        self.sizeof = 2*WORD
-        self.stack_size = 2
 
         
 class Parser:
