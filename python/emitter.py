@@ -80,35 +80,35 @@ class Constants:
 class Emitter:
     
     def __init__(self,file):
-        self.emit = self.emit_print
+        self.emit_raw = self.emit_to_file
         #self.func = None
         self.lbl_num = 0
-        self.constants = Constants(self.emit_ml)
+        self.constants = Constants(self.emit_raw)
         self.file = file
         
-    def emit_print(self,s):
-        s = s.replace(' ',TAB)
-        print >> self.file, TAB + s
- 
-    def emit_ml(self,s):
+    def emit_to_file(self,s):
         print >> self.file, s
-           
+
+    def emit_to_buffer(self,s):
+        self.func.append(s)
+        
+    def emit(self,s):
+        s = s.replace(' ',TAB)
+        self.emit_raw(TAB + s)
+            
     def begin_func(self,name):
         self.func = Func(name,0)
-        self.emit = self.buffer_func
-        
-    def buffer_func(self,s):
-        self.func.append(s)
+        self.emit_raw = self.emit_to_buffer
 
     def begin_prog(self):
-        self.emit_ml(PROG_PROLOGUE)
+        self.emit_raw(PROG_PROLOGUE)
         
     def end_prog(self):
         self.constants.emit()
         
     def end_func(self):
-        self.func.emit(self.emit_print)
-        self.emit = self.emit_print
+        self.func.emit(self.emit_to_file)
+        self.emit_raw = self.emit_to_file
         del self.func
         
     def alloca(self,stack):
@@ -151,7 +151,7 @@ class Emitter:
         self.emit("movl %%eax,-%d(%%ebp)" % ((index+1)*4,))
         
     def label(self,label):
-        self.emit("%s:" % label)
+        self.emit_raw("%s:" % label)
 
     def new_label(self):
         label = 'lbl%d' % self.lbl_num
@@ -195,4 +195,3 @@ class Emitter:
     def add_string_constant(self,const):
         self.constants.add('.asciz "%s"' % const)
         
-
