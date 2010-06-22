@@ -265,9 +265,24 @@ class Parser:
             type = self.Expression()
             self.expect(')')
             return type
+        elif self.match('[')
+            return self.ArrayConstructor()
         else:
             raise ParserException('Unexpected token %s' % str(self.token))
 
+    def ArrayConstructor():
+        arr_type = self.Expression()
+        
+        while not self.match(']'):
+            self.expect(',')
+            # allow for extra ',' at the end
+            if self.match(']'):
+                break;
+            type = self.Expression()
+            if not arr_type.typeof(type):
+                raise ParserException('Type mismatch in array constructor:  %s and %s.' % 
+                    (arr_type,type))
+            
     def do_operation(self,type,operation):
             op = type.get_operation(operation)
             if op:

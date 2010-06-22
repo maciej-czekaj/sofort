@@ -20,7 +20,7 @@ class Type:
             return self
         else:
             return None
-
+            
 class ComplexType(Type):
     ''' 
     Complex type is represented as a structure and is larger than signle machine word.
