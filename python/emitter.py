@@ -41,24 +41,32 @@ PRINT_INT="""
 TAB="\t"
 
 
-class Func:
+class Block:
 
-    def __init__(self,name,stack):
-        self.name = name
-        self.stack = stack
+    def __init__(self):
         self.inst_buffer = []
-    
-    def set_stack(self,stack):
-        self.stack = stack
     
     def append(self,inst):
         self.inst_buffer.append(inst)
+        
+    def emit(self,emit):
+        for inst in self.inst_buffer:
+            emit(inst)
+
+class Func(Block):
+
+    def __init__(self,name,stack):
+        Block.__init__(self)
+        self.name = name
+        self.stack = stack
     
+    def set_stack(self,stack):
+        self.stack = stack
+        
     def emit(self,emit):
         name = mangle(self.name)
         emit(FUN_PROLOGUE % (name,name,self.stack)) # name,name,stack
-        for inst in self.inst_buffer:
-            emit(inst)
+        Block.emit(self,emit)
         emit(FUN_EPILOGUE)
 
 
@@ -85,6 +93,18 @@ class Emitter:
         self.lbl_num = 0
         self.constants = Constants(self.emit_raw)
         self.file = file
+    
+    def begin_block(self):
+        self.block = Block()
+        self.emit_prev = self.emit_raw
+        self.emit_raw = self.block.append
+        
+    def end_block(self):
+        def flush():
+            block = self.block
+            self.block.emit(self,self.emit_prev)
+        self.emit_raw = self.emit_prev
+        del self.block
         
     def emit_to_file(self,s):
         print >> self.file, s
@@ -120,6 +140,19 @@ class Emitter:
     def push_acc(self):
         self.emit("pushl %eax")
     
+    def push_pointer(self):
+        self.emit("pushl %esi")
+
+    def pop_pointer(self):
+        self.emit("popl %esi")
+
+    def pop_add_pointer(self):
+        self.emit("addl (%esp),%esi")
+        self.emit("addl $4,%esp")
+
+    def store_at(self,index=0):
+        self.emit("movl eax,%d(%%esp)" % index)
+
     def pop_add_int(self):
         self.emit("addl %eax,(%esp)")
         self.emit("popl %eax")
@@ -188,6 +221,9 @@ class Emitter:
         self.emit("setge %al")
         self.emit("movzbl %al,%eax")
         self.emit("addl $4,%esp")
+
+    def move_pointer(self):
+        self.emit("movl %eax,%esi")
 
     def load_pointer(self):
         pass

@@ -42,6 +42,8 @@ class ComplexType(Type):
     def push(self,emitter):
         emitter.push_pointer()
         
+    def pop(self,emitter):
+        emitter.pop_pointer()
 
 class BasicType(Type):
     ''' 
@@ -72,7 +74,14 @@ class Array(ComplexType):
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
         emitter.call('malloc',2*WORD+length*subtype.sizeof)
+        emitter.move_pointer()
         
+    def store_at(self,emitter,index):
+        emitter.store_at(index)
+        
+    def add_offset(self,emitter):
+        emitter.pop_add_pointer()    
+    
 # class ArrayConstant(ComplexType):
     # ''' C-like array initiated by literal, thus it's size
         # is known at compile time. 

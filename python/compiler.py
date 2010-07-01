@@ -279,17 +279,18 @@ class Parser:
             array_type.alloc(8) # make space for 8 elements
             array_type.setLength(0)
             return array_type
+        self.emitter.begin_block()
         arr_subtype = self.Expression()
         # Now we know the array's subtype
         array_type = Array(arr_subtype)
         type = arr_subtype
         length = 1
         while not self.match(']'):
+            array_type.store_at(self.emitter,length-1)
             self.expect(',')
             # allow for extra ',' at the end
             if self.match(']'):
                 break;
-            type.push(self.emitter)
             type = self.Expression()
             if not arr_subtype.typeof(type):
                 raise ParserException('Type mismatch in array constructor:  %s and %s.' % 
