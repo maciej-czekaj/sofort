@@ -85,7 +85,7 @@ class DynamicArray(ComplexType):
         emitter.load_acc_int_at(index+self.header_size)
         
     def add_offset(self,emitter):
-        emitter.pop_add_pointer()
+        emitter.add_acc_to_pointer()
     
     def set_length(self,emitter,length):
         emitter.store_imm_int_at(1,length)

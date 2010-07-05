@@ -149,6 +149,9 @@ class Emitter:
         self.emit("addl (%esp),%esi")
         self.emit("addl $4,%esp")
 
+    def add_acc_to_pointer(self):
+        self.emit("addl %eax,%esi")
+        
     def store_acc_int_at(self,index=0):
         self.emit("movl %%eax,%d(%%esi)" % index)
 

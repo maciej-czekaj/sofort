@@ -255,10 +255,7 @@ class Parser:
             
     def UnaryExpression(self):
         if isinstance(self.token,Ident):
-            var = self.get_var(self.token.value)
-            var.load(self.emitter)
-            self.next()
-            return var.type
+            return self.VarOrFunc()
         elif isinstance(self.token,int):
             type = Int()
             type.load_literal(self.emitter,self.token) #self.emitter.load_imm_int(self.token)
@@ -273,6 +270,21 @@ class Parser:
         else:
             raise ParserException('Unexpected token %s' % str(self.token))
 
+    def VarOrFunc(self):
+            var = self.get_var(self.token.value)
+            var.load(self.emitter)
+            self.next()
+            if self.match('['): # array element
+                type = self.Expression()
+                array = var.type
+                if not type.typeof(Int()):
+                    raise ParserExpression('Array index must be int',*self.scanner.pos())
+                array.add_offset(self.emitter)
+                array.load_at(self.emitter)
+                self.expect(']')
+            return var.type
+        
+            
     def ArrayConstructor(self):
         if self.match(']'):
             # Zero-length array
