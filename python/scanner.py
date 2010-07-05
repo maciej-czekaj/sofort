@@ -1,10 +1,21 @@
 
 class ScannerException(Exception):
+    def __init__(self,msg,scanner):
+        file,line,col,buf = scanner.pos()
+        s = '%s:%s:%s: %s' % (file,line,col,msg)
+        if buf:
+            s += "\n" + buf
+        Exception.__init__(self,s)
+
+class IllegalCharException(ScannerException):
     
-    def __init__(self,char,file=None,line=None):
-        Exception.__init__(self,'Illegar char %s' % repr(char))
+    def __init__(self,char,scanner):
+        ScannerException.__init__(self,'Illegar char %s' % repr(char),scanner)
+
 
 # Tokens
+
+LINE_COMMENT = '#'
 
 digits = list('0123456789')
     
@@ -14,10 +25,11 @@ whitespace = list(" \t\n\r")
     
 operands = list('+-*/=<>')
 
-parens = list('(){}')
+parens = list('(){}[]')
 
+separators = list(',')
 
-ops_or_parens = operands + parens
+ops_or_parens = operands + parens + separators
 
 EOF = ''
 
@@ -86,14 +98,29 @@ class Scanner:
         self.col += 1
         self.buffer.append(self.char)
 
-    def skipwhite(self):
-        while self.char in whitespace:
-            if self.char == "\n":
-                self.line += 1
-                self.col = 0
-                self.buffer = []
-            self.getchar()
+    def nextline(self):
+                    self.line += 1
+                    self.col = 0
+                    self.buffer = []
     
+        
+    def skipline(self):
+        while self.char != '\n':
+            self.getchar()
+        self.nextline()
+        self.getchar()
+        
+    def skipwhite(self):
+        while True:
+            if self.char in whitespace:
+                if self.char == "\n":
+                    self.nextline()
+                self.getchar()
+            elif self.char == LINE_COMMENT:
+                self.skipline()
+            else:
+                break
+                
     def scan(self):
         self.skipwhite()
         if self.char in digits:
@@ -114,7 +141,7 @@ class Scanner:
         elif self.char == '':
             return EOF
         else:
-            raise ScannerException(self.char)
+            raise IllegalCharException(self.char,self)
 
     def scanEscapeSeq(self):
         self.getchar()

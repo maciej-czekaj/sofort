@@ -76,11 +76,11 @@ RELOPS = {
         
 class Parser:
 
-    def __init__(self,scanner,emitter):
+    def __init__(self,scanner):
         self.scanner = scanner
-        self.emitter = emitter
         self.next()
         self.stack = []
+        self.emitter_stack = []
         
     def next(self):
         self.token = self.scanner.scan()
@@ -94,17 +94,20 @@ class Parser:
             raise #ParserException('Error :%s' % str(e),*self.scanner.pos())
 
     def _Top(self):
-        self.emitter.begin_prog()
-        self.emitter.begin_func('main')
+        self.push_emitter()
+        self.constants = Constants()
+        program = Emitter()
+        program.begin_prog()
+        self.func = Func('main')
         self.stack.append(Locals())
         while self.token is not EOF:
             self.Statement()
-            #self.emitter.print_int()
         if self.token is not EOF:
             raise ParserException('EOF')
         del self.stack[-1]
-        self.emitter.end_func()        
-        self.emitter.end_prog()
+        program.emit_block(self.constants.block())
+        program.emit_block(self.func.block(self.emitter.buffer)) 
+        self.emitter = program
         
     def match(self,tok):
         if self.token == tok:
@@ -181,7 +184,7 @@ class Parser:
         if not id in locals:
             var = LocalVar(id,type)
             locals.add(var)
-            self.emitter.alloca(WORD*locals.stack_size)
+            self.func.set_stack(WORD*locals.stack_size)
         else:
             var = locals[id]
             if not var.type.typeof(type):
@@ -265,24 +268,24 @@ class Parser:
             type = self.Expression()
             self.expect(')')
             return type
-        elif self.match('[')
+        elif self.match('['):
             return self.ArrayConstructor()
         else:
             raise ParserException('Unexpected token %s' % str(self.token))
 
-    def ArrayConstructor():
+    def ArrayConstructor(self):
         if self.match(']'):
             # Zero-length array
             # Still a small space is allocated in case of further expansion.
             arr_subtype = self.Type()
-            array_type = Array(arr_subtype)
-            array_type.alloc(8) # make space for 8 elements
-            array_type.setLength(0)
+            array_type = DynamicArray(arr_subtype)
+            array_type.alloc(self.emitter,8) # make space for 8 elements
+            array_type.set_length(self.emitter,0)
             return array_type
-        self.emitter.begin_block()
+        self.push_emitter()
         arr_subtype = self.Expression()
         # Now we know the array's subtype
-        array_type = Array(arr_subtype)
+        array_type = DynamicArray(arr_subtype)
         type = arr_subtype
         length = 1
         while not self.match(']'):
@@ -296,9 +299,18 @@ class Parser:
                 raise ParserException('Type mismatch in array constructor:  %s and %s.' % 
                     (arr_type,type))
             length += 1
-        array_type.alloc(length)
-        array_type.setLength(length)
+        array_init = self.pop_emitter()
         # Now we need to load an array
+        array_type.alloc(self.emitter,length)
+        array_type.set_length(self.emitter,length)
+        self.emitter.emit_block(array_init.buffer)
+        return array_type
+        
+    def Type(self):
+        if self.match('int'):
+            return Int()
+        else:
+            raise ParserException('Expected type, found %s' % str(self.token),*self.scanner.pos())
         
     def do_operation(self,type,operation):
             op = type.get_operation(operation)
@@ -318,7 +330,17 @@ class Parser:
             msg = 'Incompatible types in %s %s %s' % (left,op,right)
             raise ParserException(msg,*self.scanner.pos())
 
+    def push_emitter(self):
+        e = Emitter()
+        self.emitter_stack.append(e)
+        self.emitter = e
 
+    def pop_emitter(self):
+        e = self.emitter
+        del self.emitter_stack[-1]
+        self.emitter = self.emitter_stack[-1]
+        return e
+        
 def outputfiles(fname):
     fname = basename(fname)
     base = re.sub('.sofort$','',fname)
@@ -337,10 +359,11 @@ def main():
         src = sys.stdin
         asm = sys.stdout
     scanner = Scanner(src)
-    parser = Parser(scanner,Emitter(asm))
+    parser = Parser(scanner)
     #import echo
     #echo.echo_class(Parser)
     parser.Top()
+    parser.emitter.flush(asm)
     asm.close()
     src.close()
     #do_gcc(asmfile,binfile)

@@ -33,11 +33,11 @@ class ComplexType(Type):
 
     def store(self,emitter,stack_index):
         # No direct stores of complex types
-        emitter.store_pointer(stack_index)        
+        emitter.store_var_pointer(stack_index)        
 
     def load(self,emitter,stack_index):
         # Load pointer to structure
-        emitter.load_pointer(stack_index)        
+        emitter.load_var_pointer(stack_index)        
 
     def push(self,emitter):
         emitter.push_pointer()
@@ -61,7 +61,7 @@ class BasicType(Type):
         emitter.push_acc()
 
 
-class Array(ComplexType):
+class DynamicArray(ComplexType):
     ''' Array of homogeneous objects: <ptr> --> <hdr><n><el_1><el_2>....<el_n>
         It's contents is allocated dynamically.
     '''
@@ -70,18 +70,26 @@ class Array(ComplexType):
         self.subtype = subtype
         self.sizeof = WORD
         self.stack_size = 1
+        self.header_size = 2
         
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
-        emitter.call('malloc',2*WORD+length*subtype.sizeof)
+        emitter.push_imm_int(2*WORD+length*self.subtype.sizeof)
+        emitter.call('malloc')
         emitter.move_pointer()
         
-    def store_at(self,emitter,index):
-        emitter.store_at(index)
+    def store_at(self,emitter,index=0):
+        emitter.store_acc_int_at(index+self.header_size)
+        
+    def load_at(self,emitter,index=0)
+        emitter.load_acc_int_at(index+self.header_size)
         
     def add_offset(self,emitter):
-        emitter.pop_add_pointer()    
+        emitter.pop_add_pointer()
     
+    def set_length(self,emitter,length):
+        emitter.store_imm_int_at(1,length)
+        
 # class ArrayConstant(ComplexType):
     # ''' C-like array initiated by literal, thus it's size
         # is known at compile time. 

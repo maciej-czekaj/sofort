@@ -41,102 +41,101 @@ PRINT_INT="""
 TAB="\t"
 
 
-class Block:
+# class Block:
 
-    def __init__(self):
-        self.inst_buffer = []
+    # def __init__(self):
+        # self.inst_buffer = []
     
-    def append(self,inst):
-        self.inst_buffer.append(inst)
+    # def append(self,inst):
+        # self.inst_buffer.append(inst)
+
+    # def extend(self,buffer):
+        # self.inst_buffer.extend(buffer)
+    
+    # def emit(self,emit):
+        # for inst in self.inst_buffer:
+            # emit(inst)
         
-    def emit(self,emit):
-        for inst in self.inst_buffer:
-            emit(inst)
+            
+class Func:
 
-class Func(Block):
-
-    def __init__(self,name,stack):
-        Block.__init__(self)
+    def __init__(self,name,stack=0):
         self.name = name
         self.stack = stack
     
     def set_stack(self,stack):
         self.stack = stack
         
-    def emit(self,emit):
+    # def emit(self,emit):
+        # name = mangle(self.name)
+        # emit(FUN_PROLOGUE % (name,name,self.stack)) # name,name,stack
+        # Block.emit(self,emit)
+        # emit(FUN_EPILOGUE)
+
+    def block(self,buffer):
         name = mangle(self.name)
-        emit(FUN_PROLOGUE % (name,name,self.stack)) # name,name,stack
-        Block.emit(self,emit)
-        emit(FUN_EPILOGUE)
-
-
+        prologue = FUN_PROLOGUE % (name,name,self.stack)
+        return [prologue] + buffer + [FUN_EPILOGUE]         
+        
 class Constants:
 
-    def __init__(self,emitter):
-        self.entries = []
-        self.emitter = emitter
+    def __init__(self):
+        self.buffer = []
     
-    def add(self,const):
-        self.entries.append(const)
+    def block(self):
+        return ['.data'] + self.buffer
+    
+    def add_string_constant(self,const):
+        self.buffer.append('.asciz "%s"' % const)
+
         
-    def emit(self):
-        self.emitter('.data')
-        for const in self.entries:
-            self.emitter(const)
-           
+def stack_offset(index):
+    return (index+1)*4
 
 class Emitter:
     
-    def __init__(self,file):
-        self.emit_raw = self.emit_to_file
-        #self.func = None
+    def __init__(self):
+        self.buffer = []
+        self.emit_raw = self.buffer.append
+        #self.emit_to_file = self.emit_raw
+        self.__call__ = self.emit_raw
         self.lbl_num = 0
-        self.constants = Constants(self.emit_raw)
-        self.file = file
+        #self.constants = Constants(self.emit_raw)
     
-    def begin_block(self):
-        self.block = Block()
-        self.emit_prev = self.emit_raw
-        self.emit_raw = self.block.append
-        
-    def end_block(self):
-        def flush():
-            block = self.block
-            self.block.emit(self,self.emit_prev)
-        self.emit_raw = self.emit_prev
-        del self.block
-        
-    def emit_to_file(self,s):
-        print >> self.file, s
+    def flush(self,file):
+        print >> file, '\n'.join(self.buffer)
 
-    def emit_to_buffer(self,s):
-        self.func.append(s)
+    def emit_block(self,buffer):
+        self.buffer.extend(buffer)
         
     def emit(self,s):
         s = s.replace(' ',TAB)
         self.emit_raw(TAB + s)
-            
-    def begin_func(self,name):
-        self.func = Func(name,0)
-        self.emit_raw = self.emit_to_buffer
+    
+    # def begin_func(self,name):
+        # self.func = Func(name,0)
+        # self.emit_raw = self.emit_to_buffer
 
     def begin_prog(self):
         self.emit_raw(PROG_PROLOGUE)
         
-    def end_prog(self):
-        self.constants.emit()
+    # def end_prog(self):
+        # self.constants.emit()
         
-    def end_func(self):
-        self.func.emit(self.emit_to_file)
-        self.emit_raw = self.emit_to_file
-        del self.func
+    # def end_func(self):
+        # self.func.emit(self.emit_to_file)
+        # self.emit_raw = self.emit_to_file
+        # del self.func
         
-    def alloca(self,stack):
-        self.func.set_stack(stack)
+    # def alloca(self,stack):
+        # self.func.set_stack(stack)
         
     def print_int(self):
         self.emit(PRINT_INT)
 
+    def push_imm_int(self,value):
+        self.emit("pushl $%d" % value)
+        
     def push_acc(self):
         self.emit("pushl %eax")
     
@@ -150,9 +149,15 @@ class Emitter:
         self.emit("addl (%esp),%esi")
         self.emit("addl $4,%esp")
 
-    def store_at(self,index=0):
-        self.emit("movl eax,%d(%%esp)" % index)
+    def store_acc_int_at(self,index=0):
+        self.emit("movl %%eax,%d(%%esi)" % index)
 
+    def store_imm_int_at(self,index,val):
+        self.emit("movl $%d,%d(%%esi)" % (val,index))
+
+    def load_acc_int_at(self,index=0):
+        self.emit("movl %d(%%esi),%%eax" % index)
+        
     def pop_add_int(self):
         self.emit("addl %eax,(%esp)")
         self.emit("popl %eax")
@@ -178,10 +183,10 @@ class Emitter:
         self.emit("negl %eax")
         
     def load_var_int(self,index):
-        self.emit("movl -%d(%%ebp),%%eax" % ((index+1)*4,))
+        self.emit("movl -%d(%%ebp),%%eax" % (stack_offset(index),))
 
     def store_var_int(self,index):
-        self.emit("movl %%eax,-%d(%%ebp)" % ((index+1)*4,))
+        self.emit("movl %%eax,-%d(%%ebp)" % (stack_offset(index),))
         
     def label(self,label):
         self.emit_raw("%s:" % label)
@@ -225,9 +230,11 @@ class Emitter:
     def move_pointer(self):
         self.emit("movl %eax,%esi")
 
-    def load_pointer(self):
-        pass
-        
-    def add_string_constant(self,const):
-        self.constants.add('.asciz "%s"' % const)
-        
+    def load_var_pointer(self,index):
+        self.emit("movl -%d(%%ebp),%%esi" % (stack_offset(index),))
+
+    def store_var_pointer(self,index):
+        self.emit("movl %%esi,-%d(%%ebp)" % (stack_offset(index),))
+    
+    def call(self,func):
+        self.emit("call %s" % mangle(func))
