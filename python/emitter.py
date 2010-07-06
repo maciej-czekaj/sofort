@@ -173,6 +173,9 @@ class Emitter:
         self.emit("imull (%esp)")
         self.emit("addl $4,%esp")
         
+    def mul_imm_int(self,value):
+        self.emit("imull $%d,%%eax" % value)
+        
     def pop_div_int(self):
         self.emit("movl %eax,%ebx")
         self.emit("popl %eax")

@@ -70,7 +70,7 @@ class DynamicArray(ComplexType):
         self.subtype = subtype
         self.sizeof = WORD
         self.stack_size = 1
-        self.header_size = 2
+        self.header_size = 2*WORD
         
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
@@ -79,12 +79,13 @@ class DynamicArray(ComplexType):
         emitter.move_pointer()
         
     def store_at(self,emitter,index=0):
-        emitter.store_acc_int_at(index+self.header_size)
+        emitter.store_acc_int_at(index*WORD+self.header_size)
         
-    def load_at(self,emitter,index=0)
-        emitter.load_acc_int_at(index+self.header_size)
+    def load_at(self,emitter,index=0):
+        emitter.load_acc_int_at(index*WORD+self.header_size)
         
     def add_offset(self,emitter):
+        emitter.mul_imm_int(self.subtype.sizeof) # acc *= sizeof(subtype)
         emitter.add_acc_to_pointer()
     
     def set_length(self,emitter,length):

@@ -282,6 +282,7 @@ class Parser:
                 array.add_offset(self.emitter)
                 array.load_at(self.emitter)
                 self.expect(']')
+                return array.subtype
             return var.type
         
             
@@ -300,8 +301,8 @@ class Parser:
         array_type = DynamicArray(arr_subtype)
         type = arr_subtype
         length = 1
+        array_type.store_at(self.emitter,0)
         while not self.match(']'):
-            array_type.store_at(self.emitter,length-1)
             self.expect(',')
             # allow for extra ',' at the end
             if self.match(']'):
@@ -310,6 +311,7 @@ class Parser:
             if not arr_subtype.typeof(type):
                 raise ParserException('Type mismatch in array constructor:  %s and %s.' % 
                     (arr_type,type))
+            array_type.store_at(self.emitter,length)
             length += 1
         array_init = self.pop_emitter()
         # Now we need to load an array
