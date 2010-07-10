@@ -32,7 +32,7 @@ class ComplexType(Type):
     '''
 
     def store(self,emitter,stack_index):
-        # No direct stores of complex types
+        # Store new pointer
         emitter.store_var_pointer(stack_index)        
 
     def load(self,emitter,stack_index):
@@ -60,7 +60,7 @@ class BasicType(Type):
     def push(self,emitter):
         emitter.push_acc()
 
-
+        
 class DynamicArray(ComplexType):
     ''' Array of homogeneous objects: <ptr> --> <hdr><n><el_1><el_2>....<el_n>
         It's contents is allocated dynamically.

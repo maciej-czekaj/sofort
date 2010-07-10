@@ -37,6 +37,7 @@ class Locals:
     def __init__(self):
         self.stack_size = 0
         self.vars = {}
+        self.get = self.vars.get
     
     def __contains__(self,name):
         return name in self.vars
@@ -72,8 +73,12 @@ RELOPS = {
     '!=' : 'ne',
 }
 
+class Location:
 
-        
+    def __init__(self,type,store_func):
+        self.type = type
+        self.store = store_func
+
 class Parser:
 
     def __init__(self,scanner):
@@ -176,23 +181,41 @@ class Parser:
             If x is first used, it is declaration of var x of type(Expr).
             Otherwise, it is ordinary assignment where type(x) must match type(Expr).
         '''
-        id = self.token.value
+        id,location,ltype = self.Lvalue()
         locals = self.stack[-1]
-        self.next()
         self.expect('=')
-        type = self.Expression()
-        if not id in locals:
-            var = LocalVar(id,type)
+        rtype = self.Expression()
+        if not ltype:
+            var = LocalVar(id,rtype)
             locals.add(var)
             self.func.set_stack(WORD*locals.stack_size)
+            location = var
         else:
-            var = locals[id]
-            if not var.type.typeof(type):
-                raise ParserException('Illegal assignment of %s to variable %s' % (str(type),str(var.type)))
-        # The type of a variable may change in the future
+            if not ltype.typeof(rtype):
+                raise ParserException('Illegal assignment of %s to variable %s' % (str(rtype),str(ltype)))
+                # The type of a variable may change in the future
         # when a constant is promoted to non constant value.
-        var.store(self.emitter) #self.emitter.store_var_int(locals[id])
+        location.store(self.emitter) #self.emitter.store_var_int(locals[id])
 
+    def Lvalue(self):
+        id = self.token.value
+        self.next()
+        if self.match('['):
+            var = self.get_var(id)
+            var.load(self.emitter)
+            index_type = self.Expression()
+            if not index_type.typeof(Int()):
+                raise ParserExpression('Array index must be int',*self.scanner.pos())
+            self.expect(']')
+            var.type.add_offset(self.emitter)
+            location = Location(var.type.subtype,var.type.store_at)
+            return id,location,var.type.subtype
+        locals = self.stack[-1]
+        var = locals.get(id)
+        if var:
+            return id,var,var.type
+        return id,None,None
+            
     def Expression(self):
         return self.RelationalExpression()
         
