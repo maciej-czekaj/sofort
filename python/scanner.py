@@ -54,6 +54,12 @@ class IntLiteral(Token):
 
     def __init__(self,literal):
         self.value = literal
+
+class CharLiteral(Token):
+
+    def __init__(self,literal):
+        self.value = literal
+    
         
 class Word(Token):
 
@@ -138,6 +144,8 @@ class Scanner:
             token = self.char 
             self.getchar()
             return token
+        elif self.char == "'":
+            return self.scanCharLiteral()
         elif self.char == '':
             return EOF
         else:
@@ -171,6 +179,17 @@ class Scanner:
         string = ''.join(chars)
         return StringLiteral(string)
         
+    def scanCharLiteral(self):
+        self.getchar()
+        if self.char == '\\':
+            char = self.scanEscapeSeq()
+        else:
+            char = self.char
+        self.getchar()
+        if self.char != "'":
+            raise ScannerException('Expected "\'"',self)
+        return CharLiteral(char)
+    
     def scanNumber(self):
         s = self.char
         self.getchar()

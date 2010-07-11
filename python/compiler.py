@@ -181,17 +181,17 @@ class Parser:
             If x is first used, it is declaration of var x of type(Expr).
             Otherwise, it is ordinary assignment where type(x) must match type(Expr).
         '''
-        id,location,ltype = self.Lvalue()
+        id,location = self.Lvalue()
         locals = self.stack[-1]
         self.expect('=')
         rtype = self.Expression()
-        if not ltype:
+        if not location:
             var = LocalVar(id,rtype)
             locals.add(var)
             self.func.set_stack(WORD*locals.stack_size)
             location = var
         else:
-            if not ltype.typeof(rtype):
+            if not location.type.typeof(rtype):
                 raise ParserException('Illegal assignment of %s to variable %s' % (str(rtype),str(ltype)))
                 # The type of a variable may change in the future
         # when a constant is promoted to non constant value.
@@ -209,12 +209,12 @@ class Parser:
             self.expect(']')
             var.type.add_offset(self.emitter)
             location = Location(var.type.subtype,var.type.store_at)
-            return id,location,var.type.subtype
+            return id,location
         locals = self.stack[-1]
         var = locals.get(id)
         if var:
-            return id,var,var.type
-        return id,None,None
+            return id,var
+        return id,None
             
     def Expression(self):
         return self.RelationalExpression()
@@ -282,6 +282,11 @@ class Parser:
         elif isinstance(self.token,int):
             type = Int()
             type.load_literal(self.emitter,self.token) #self.emitter.load_imm_int(self.token)
+            self.next()
+            return type
+        elif isinstance(self.token,CharLiteral):
+            type = Char()
+            type.load_literal(self.emitter,self.token.value)
             self.next()
             return type
         elif self.match('('):
