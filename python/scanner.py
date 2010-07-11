@@ -49,7 +49,12 @@ class StringLiteral(Token):
     def __init__(self,literal):
         self.value = literal
 
+    def __eq__(self,other):
+        return self.value == other
 
+    def __ne__(self,other):
+        return self.value != other
+ 
 class IntLiteral(Token):
 
     def __init__(self,literal):
@@ -58,8 +63,13 @@ class IntLiteral(Token):
 class CharLiteral(Token):
 
     def __init__(self,literal):
-        self.value = literal
-    
+        self.value = literal    
+        
+    def __eq__(self,other):
+        return self.value == other
+
+    def __ne__(self,other):
+        return self.value != other
         
 class Word(Token):
 
@@ -105,9 +115,9 @@ class Scanner:
         self.buffer.append(self.char)
 
     def nextline(self):
-                    self.line += 1
-                    self.col = 0
-                    self.buffer = []
+        self.line += 1
+        self.col = 0
+        self.buffer = []
     
         
     def skipline(self):
@@ -146,6 +156,8 @@ class Scanner:
             return token
         elif self.char == "'":
             return self.scanCharLiteral()
+        elif self.char == '"':
+            return self.scanStringLiteral()
         elif self.char == '':
             return EOF
         else:
@@ -187,7 +199,8 @@ class Scanner:
             char = self.char
         self.getchar()
         if self.char != "'":
-            raise ScannerException('Expected "\'"',self)
+            raise ScannerException('Expected "\'", found "%s"' % repr(self.char),self)
+        self.getchar()
         return CharLiteral(char)
     
     def scanNumber(self):

@@ -1,5 +1,6 @@
 a = [1,2,3]
 i = 0
+a[1] = 7
 while i < 3 {
     print a[i]
     i = i + 1

@@ -158,9 +158,16 @@ class Parser:
     def Print(self):
         #assert self.token.name == 'print'
         self.next()
-        self.Expression()
-        self.emitter.print_int()
-
+        type = self.Expression()
+        if isinstance(type,Int):
+            self.emitter.print_int()
+        elif isinstance(type,Char):
+            self.emitter.print_char()
+        elif isinstance(type,String):
+            self.emitter.print_string()
+        else:
+            raise ParserException('Unsupported type',*self.scanner.pos())
+            
     def If(self):
         self.next()
         self.Expression()
@@ -286,6 +293,11 @@ class Parser:
             return type
         elif isinstance(self.token,CharLiteral):
             type = Char()
+            type.load_literal(self.emitter,self.token.value)
+            self.next()
+            return type
+        elif isinstance(self.token,StringLiteral):
+            type = String()
             type.load_literal(self.emitter,self.token.value)
             self.next()
             return type

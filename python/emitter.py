@@ -8,8 +8,12 @@ else:
 
 PROG_PROLOGUE=r"""
 .data
-Format:
-	.ascii "%d\n"  # format string for printf
+int_format:
+	.asciz "%d\n"  # format string for printf
+char_format:
+	.asciz "%c\n"  
+string_format:
+	.asciz "%s\n" 
 """
 
 FUN_PROLOGUE="""
@@ -30,13 +34,6 @@ FUN_EPILOGUE=r"""
 	leave
 	ret
 """
-
-PRINT_INT="""
-	pushl	%%eax
-	pushl	$Format
-	call	%s
-	subl	$8,%%esp
-""" % mangle('printf')
 
 TAB="\t"
 
@@ -131,7 +128,19 @@ class Emitter:
         # self.func.set_stack(stack)
         
     def print_int(self):
-        self.emit(PRINT_INT)
+        self.push_acc()
+        self.emit("pushl $int_format")
+        self.call('printf',2)
+
+    def print_char(self):
+        self.push_acc()
+        self.emit("pushl $char_format")
+        self.call('printf',2)
+        
+    def print_string(self):
+        self.push_pointer()
+        self.emit("pushl $string_format")
+        self.call('printf',2)
 
     def push_imm_int(self,value):
         self.emit("pushl $%d" % value)
@@ -242,5 +251,16 @@ class Emitter:
     def store_var_pointer(self,index):
         self.emit("movl %%esi,-%d(%%ebp)" % (stack_offset(index),))
     
-    def call(self,func):
+    def call(self,func,argc):
         self.emit("call %s" % mangle(func))
+        self.emit("addl $%d,%%esp" % (argc*4))
+        
+    def load_acc_byte_at(self,index=0):
+        self.emit("movzxb %d(%%esi),%%eax" % index)
+    
+    def store_acc_byte_at(self,index=0):
+        self.emit("movb %%al,%d(%%esi)" % index)
+
+    def store_imm_byte_at(self,index,val):
+        self.emit("movb $%d,%d(%%esi)" % (val,index))
+

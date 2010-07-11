@@ -75,15 +75,15 @@ class DynamicArray(ComplexType):
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
         emitter.push_imm_int(2*WORD+length*self.subtype.sizeof)
-        emitter.call('malloc')
+        emitter.call('malloc',1)
         emitter.move_pointer()
         self.length = length
         
     def store_at(self,emitter,index=0):
-        emitter.store_acc_int_at(index*WORD+self.header_size)
+        self.subtype.store_at(emitter,index*self.subtype.sizeof+self.header_size)
         
     def load_at(self,emitter,index=0):
-        emitter.load_acc_int_at(index*WORD+self.header_size)
+        self.subtype.load_at(emitter,index*self.subtype.sizeof+self.header_size)
         
     def add_offset(self,emitter):
         emitter.mul_imm_int(self.subtype.sizeof) # acc *= sizeof(subtype)
@@ -106,6 +106,17 @@ class String(DynamicArray):
         # Allocate one extra char for null at the end
         DynamicArray.alloc(self,emitter,length+1)
         self.length -= 1
+        self.set_length(emitter,self.length)
+        
+    def load_literal(self,emitter,literal):
+        self.alloc(emitter,len(literal))
+        index = 0
+        for ch in literal:
+            emitter.store_imm_byte_at(index+self.header_size,ord(ch))
+            index += 1
+    
+    def load_c_string(self,emitter):
+        self.add_offset
     
 class IntegralOps:
 
@@ -142,11 +153,16 @@ class Int(BasicType,IntegralOps):
 
     def __init__(self):
         self.sizeof = WORD
-        self.stack_size = 1
-        
+        self.stack_size = 1        
 
     def load_literal(self,emitter,literal):
         emitter.load_imm_int(literal)
+
+    def store_at(self,emitter,offset=0):
+        emitter.store_acc_int_at(offset)
+        
+    def load_at(self,emitter,offset=0):
+        emitter.load_acc_int_at(offset)
 
 class Char(BasicType,IntegralOps):
 
@@ -159,18 +175,9 @@ class Char(BasicType,IntegralOps):
     def load_literal(self,emitter,literal):
         emitter.load_imm_int(ord(literal))
 
-class Char(BasicType):
-
-    def __init__(self,literal=None):
-        self.literal = literal
-        self.sizeof = 1 # For now
-        self.stack_size = 1
+    def store_at(self,emitter,offset=0):
+        emitter.store_acc_byte_at(offset)
         
-class Array(ComplexType):
-    # struct array[T] { T *arr; int len }
-    
-    def __init__(self,element_type,literal=None):
-        self.literal = literal
-        self.element_type = element_type
-        self.sizeof = 2*WORD
-        self.stack_size = 2
+    def load_at(self,emitter,offset=0):
+        emitter.load_acc_byte_at(offset)
+        
