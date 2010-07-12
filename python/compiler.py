@@ -164,6 +164,7 @@ class Parser:
         elif isinstance(type,Char):
             self.emitter.print_char()
         elif isinstance(type,String):
+            type.load_c_string(self.emitter)
             self.emitter.print_string()
         else:
             raise ParserException('Unsupported type',*self.scanner.pos())
@@ -209,10 +210,10 @@ class Parser:
         self.next()
         if self.match('['):
             var = self.get_var(id)
+            self.assert_typeof(var.type,Array)
             var.load(self.emitter)
             index_type = self.Expression()
-            if not index_type.typeof(Int()):
-                raise ParserExpression('Array index must be int',*self.scanner.pos())
+            self.assert_typeof(index_type,Int,'Array index must be int')
             self.expect(']')
             var.type.add_offset(self.emitter)
             location = Location(var.type.subtype,var.type.store_at)
@@ -223,6 +224,12 @@ class Parser:
             return id,var
         return id,None
             
+    def assert_typeof(self,obj,type,err_msg=''):
+        type = type()
+        if not obj.typeof(type):
+            raise ParserException('Expected type "%s", not "%s". %s' % 
+                (str(obj),str(type),err_msg),*self.scanner.pos())
+        
     def Expression(self):
         return self.RelationalExpression()
         

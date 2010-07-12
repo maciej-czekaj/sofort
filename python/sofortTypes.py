@@ -1,6 +1,14 @@
 
 WORD = 4 # machine word size
 
+def powerOf2(n):
+    pow = 1
+    for i in range(WORD*8):
+        if n == pow:
+            return i
+        pow *= 2
+    return None
+    
 class Type:
     
     def __str__(self):
@@ -60,8 +68,11 @@ class BasicType(Type):
     def push(self,emitter):
         emitter.push_acc()
 
+# Abstract subclass for all array-like types
+class Array(ComplexType):
+    pass
         
-class DynamicArray(ComplexType):
+class DynamicArray(Array):
     ''' Array of homogeneous objects: <ptr> --> <hdr><n><el_1><el_2>....<el_n>
         It's contents is allocated dynamically.
     '''
@@ -71,6 +82,11 @@ class DynamicArray(ComplexType):
         self.sizeof = WORD
         self.stack_size = 1
         self.header_size = 2*WORD
+        shift = powerOf2(subtype.sizeof)
+        if shift:
+            self.offset_op = 'shl_imm_int'
+        else:
+            self.offset_op = 'mul_imm_int'
         
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
@@ -86,12 +102,21 @@ class DynamicArray(ComplexType):
         self.subtype.load_at(emitter,index*self.subtype.sizeof+self.header_size)
         
     def add_offset(self,emitter):
-        emitter.mul_imm_int(self.subtype.sizeof) # acc *= sizeof(subtype)
+        emitter.push_acc()
+        self.op_len(emitter)
+        emitter.pop_cmp_int()
+        label = emitter.new_label()
+        emitter.jump_if_less(label)
+        emitter.call('exception',0)
+        emitter.label(label)
+        getattr(emitter,self.offset_op)(self.subtype.sizeof) # acc *= sizeof(subtype)
         emitter.add_acc_to_pointer()
     
     def set_length(self,emitter,length):
         emitter.store_imm_int_at(1,length)
         
+    def op_len(self,emitter):
+        emitter.load_acc_int_at(1)
         
 class String(DynamicArray):
     ''' String is array of chars. This string type is mutable.
@@ -116,7 +141,7 @@ class String(DynamicArray):
             index += 1
     
     def load_c_string(self,emitter):
-        self.add_offset
+        emitter.add_imm_to_pointer(self.header_size)
     
 class IntegralOps:
 
@@ -146,6 +171,7 @@ class IntegralOps:
         
     def op_lt(self,emitter):
         emitter.pop_lt_int()
+        
         
 class Int(BasicType,IntegralOps):
 

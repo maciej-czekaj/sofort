@@ -14,7 +14,16 @@ char_format:
 	.asciz "%c\n"  
 string_format:
 	.asciz "%s\n" 
-"""
+exception_msg:
+	.asciz "Exception.\n"
+""" + """
+.text
+%s:
+    pushl $exception_msg
+    call %s
+    pushl $1
+    call %s
+""" % (mangle('exception'),mangle('puts'),mangle('exit'))
 
 FUN_PROLOGUE="""
 .text
@@ -218,6 +227,13 @@ class Emitter:
     def jump(self,label):
         self.emit("jmp %s" % label)
 
+    def jump_if_less(self,label):
+        self.emit("jl %s" % label)
+        
+    def pop_cmp_int(self):
+        self.emit("popl %ebx")
+        self.emit("cmpl %eax,%ebx")
+
     def pop_lt_int(self):
         self.emit("cmpl %eax,(%esp)")
         self.emit("setl %al")
@@ -253,8 +269,9 @@ class Emitter:
     
     def call(self,func,argc):
         self.emit("call %s" % mangle(func))
-        self.emit("addl $%d,%%esp" % (argc*4))
-        
+        if argc > 0:
+            self.emit("addl $%d,%%esp" % (argc*4))
+ 
     def load_acc_byte_at(self,index=0):
         self.emit("movzxb %d(%%esi),%%eax" % index)
     
@@ -264,3 +281,5 @@ class Emitter:
     def store_imm_byte_at(self,index,val):
         self.emit("movb $%d,%d(%%esi)" % (val,index))
 
+    def add_imm_to_pointer(self,offset):
+        self.emit("addl $%d,%%esi" % offset)
