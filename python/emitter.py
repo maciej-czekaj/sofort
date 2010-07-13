@@ -157,6 +157,9 @@ class Emitter:
     def push_acc(self):
         self.emit("pushl %eax")
     
+    def pop_acc(self):
+        self.emit("popl %eax")
+
     def push_pointer(self):
         self.emit("pushl %esi")
 

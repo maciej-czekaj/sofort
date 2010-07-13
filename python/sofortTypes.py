@@ -83,10 +83,12 @@ class DynamicArray(Array):
         self.stack_size = 1
         self.header_size = 2*WORD
         shift = powerOf2(subtype.sizeof)
-        if shift:
-            self.offset_op = 'shl_imm_int'
+        if shift == 1:
+            self.offset_op = lambda(s,e): None
+        elif shift is None:
+            self.offset_op = lambda(s,e): e.mul_imm_int(subtype.sizeof) 
         else:
-            self.offset_op = 'mul_imm_int'
+            self.offset_op = lambda(s,e): e.shl_imm_int(subtype.sizeof)
         
     def alloc(self,emitter,length):
         # Word for header, word for length, rest for contents
@@ -103,13 +105,15 @@ class DynamicArray(Array):
         
     def add_offset(self,emitter):
         emitter.push_acc()
+        emitter.push_acc()
         self.op_len(emitter)
         emitter.pop_cmp_int()
         label = emitter.new_label()
         emitter.jump_if_less(label)
         emitter.call('exception',0)
         emitter.label(label)
-        getattr(emitter,self.offset_op)(self.subtype.sizeof) # acc *= sizeof(subtype)
+        emitter.pop_acc()
+        self.offset_op(emitter) # acc *= sizeof(subtype)
         emitter.add_acc_to_pointer()
     
     def set_length(self,emitter,length):
@@ -130,7 +134,7 @@ class String(DynamicArray):
     def alloc(self,emitter,length):
         # Allocate one extra char for null at the end
         DynamicArray.alloc(self,emitter,length+1)
-        self.length -= 1
+        self.length = length
         self.set_length(emitter,self.length)
         
     def load_literal(self,emitter,literal):
@@ -139,6 +143,8 @@ class String(DynamicArray):
         for ch in literal:
             emitter.store_imm_byte_at(index+self.header_size,ord(ch))
             index += 1
+        emitter.store_imm_byte_at(index+self.header_size,0)
+        
     
     def load_c_string(self,emitter):
         emitter.add_imm_to_pointer(self.header_size)
