@@ -83,13 +83,12 @@ class DynamicArray(Array):
         self.stack_size = 1
         self.header_size = 2*WORD
         shift = powerOf2(subtype.sizeof)
-        f =  
         if shift == 1:
-            self.offset_op = lambda s,e: None
+            self.offset_op = lambda e: None
         elif shift is None:
-            self.offset_op = lambda s,e: e.mul_imm_int(subtype.sizeof)
+            self.offset_op = lambda e: e.mul_imm_int(subtype.sizeof)
         else:
-            self.offset_op = lambda s,e: e.shl_imm_int(shift)
+            self.offset_op = lambda e: e.shl_imm_int(shift)
     
     def mul_offset(self,emitter):
         emitter.mul_imm_int(self.subtype.sizeof)
