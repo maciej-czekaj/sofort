@@ -81,7 +81,13 @@ class Word(Token):
             return self.value == other or self.value == other.value
         except AttributeError:
             return False
-    
+
+    def __ne__(self,other):
+        try:
+            return self.value != other or self.value != other.value
+        except AttributeError:
+            return False
+            
     def __str__(self):
         return str(self.value)
 

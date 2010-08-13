@@ -51,17 +51,11 @@ class Locals:
         return self.vars[name]
 
 
-OPERATIONS = {
+OPS = {
     '+' : 'add',
     '-' : 'sub',
     '/' : 'div',
     '*' : 'mul',
-    '<' : 'lt',
-    '>' : 'gt',
-    '<=' : 'le',
-    '>=' : 'ge',
-    '==' : 'eq',
-    '!=' : 'ne',
 }
 
 RELOPS = {
@@ -79,6 +73,216 @@ class Location:
         self.type = type
         self.store = store_func
 
+
+class SofortParser:
+
+    def __init__(self,scanner):
+        self.scanner = scanner
+        self.next()
+
+    def next(self):
+        self.token = self.scanner.scan()
+        return self.token
+
+    def match(self,tok):
+        if self.token == tok:
+            self.next()
+            return True
+        return False
+
+    def expect(self,tok):
+        #print self.token
+        if self.token != tok:
+            raise ParserException('Expected "%s"'%tok,*self.scanner.pos())
+        return self.next()
+
+    def Top(self):
+        try:
+            return self._Top()
+        except :
+            print self.scanner.pos()
+            raise #ParserException('Error :%s' % str(e),*self.scanner.pos())
+
+    def _Top(self):
+        stat_list = []
+        while self.token is not EOF:
+            stat_list.append( self.Statement() )
+        if self.token is not EOF:
+            raise ParserException('EOF')
+        return stat_list
+            
+    def Statement(self):
+        if isinstance(self.token,Ident):
+            stat = self.Assignment()
+        elif self.token == 'print':
+            stat = self.Print()
+        elif self.token == 'if':
+            stat = self.If()
+        elif self.token == 'while':
+            stat = self.While()
+        elif self.token == '{':
+            stat = self.Block()
+        else:
+            raise ParserException('Expected statement',*self.scanner.pos())
+        #print stat
+        return stat
+
+    def While(self):
+        self.next()
+        expr = self.Expression()
+        stat = self.Statement()
+        return 'WHILE',expr,stat
+
+    def Block(self):
+        self.next()
+        stats = []
+        while not self.match('}'):
+            stats.append( self.Statement() )
+        return 'BLOCK',stats
+        
+    def Print(self):
+        self.next()
+        expr = self.Expression()
+        return 'PRINT',expr
+        
+    def If(self):
+        self.next()
+        expr = self.Expression()
+        stat1 = self.Statement()       
+        if self.match('else'):
+            stat2 = self.Statement()
+            return 'IFELSE',expr,stat1,stat2
+        return 'IF',expr,stat1
+
+    def Assignment(self):
+        ''' Assignment acts as both declaration and ordinary assignment.
+            x = <Expr>
+            If x is first used, it is declaration of var x of type(Expr).
+            Otherwise, it is ordinary assignment where type(x) must match type(Expr).
+        '''
+        lval = self.Lvalue()
+        self.expect('=')
+        expr = self.Expression()
+        return 'ASSIGN',lval,expr
+ 
+    def Lvalue(self):
+        id = self.token.value
+        self.next()
+        if self.match('['):
+            index = self.Expression()
+            self.expect(']')
+            return 'INDEX',id,index
+        return 'ID',id
+
+    def Expression(self):
+        return self.RelationalExpression()
+        
+    def RelationalExpression(self):
+        left = self.ArithmeticExpression()
+        while True:
+            op = RELOPS.get(self.token,None)
+            if not op:
+                break
+            self.next()
+            right = self.ArithmeticExpression()
+            left = ('RELOP',op,left,right)
+        return left
+        
+        
+    def ArithmeticExpression(self):
+        left = self.Product()
+        while True:
+            if self.token == '+':
+                op = 'add'
+            elif self.token == '-':
+                op = 'sub'
+            else:
+                break
+            self.next()
+            right = self.Product()
+            left = ('ARITH',op,left,right)
+        return left
+        
+    def Product(self):
+        left = self.Factor()
+        while True:
+            if self.token == '*':
+                op = 'mul'
+            elif self.token == '/':
+                op = 'div'
+            else:
+                break
+            self.next()
+            right = self.Factor()
+            left = ('ARITH',op,left,right)
+        return left
+
+    def Factor(self):
+        if self.match('-'):  # unary minus
+            expr = self.UnaryExpression()
+            expr = ('NEG',expr)
+        else:
+            expr = self.UnaryExpression()
+        return expr        
+
+    def UnaryExpression(self):
+        if isinstance(self.token,Ident):
+            expr = self.VarOrFunc()
+        elif isinstance(self.token,int):
+            expr = ('INT',self.token)
+            self.next()
+        elif isinstance(self.token,CharLiteral):
+            expr = ('CHAR',self.token.value)
+            self.next()
+        elif isinstance(self.token,StringLiteral):
+            expr = ('STRING',self.token.value)
+            self.next()
+        elif self.match('('):
+            expr = self.Expression()
+            self.expect(')')
+        elif self.match('['):
+            expr = self.ArrayConstructor()
+        else:
+            raise ParserException('Unexpected token %s' % str(self.token))
+        return expr
+
+    def VarOrFunc(self):
+            var = self.token.value
+            self.next()
+            if self.match('['): # array element
+                index = self.Expression()
+                self.expect(']')
+                return 'INDEX',var,index
+            return 'ID',var
+        
+            
+    def ArrayConstructor(self):
+        if self.match(']'):
+            # Zero-length array
+            # Still a small space is allocated in case of further expansion.
+            arr_subtype = self.Type()
+            return 'ARRAY_INIT',arr_subtype
+        init_list = []
+        init_list.append( self.Expression() )
+        # Now we know the array's subtype
+        while not self.match(']'):
+            self.expect(',')
+            # allow for extra ',' at the end
+            if self.match(']'):
+                break;
+            init_list.append( self.Expression() )
+        return 'ARRAY_CONS',init_list
+        
+    def Type(self):
+        if self.token in ['int','char']:
+            tok = self.token
+        else:
+            raise ParserException('Expected type, found %s' % str(self.token),*self.scanner.pos())
+        self.next()
+        return tok
+
+
+        
 class Parser:
 
     def __init__(self,scanner):
@@ -420,26 +624,17 @@ def main():
         src = sys.stdin
         asm = sys.stdout
     scanner = Scanner(src)
-    parser = Parser(scanner)
+    parser = SofortParser(scanner)
     #import echo
-    #echo.echo_class(Parser)
-    parser.Top()
-    parser.emitter.flush(asm)
+    #echo.echo_class(SofortParser)
+    ast = parser.Top()
+    #parser.emitter.flush(asm)
+    import pprint
+    pprint.pprint(ast)
     asm.close()
     src.close()
     #do_gcc(asmfile,binfile)
     
-def testScanner1():
-    f = StringIO('abc / 123 +cd*1')
-    scanner = Scanner(f)
-    exp = ['abc','/',123,'+','cd','*',1]
-    res = []
-    token = scanner.scan()
-    while token != EOF:
-        res.append(token)
-        token = scanner.scan()
-    #print res,exp
-    assert res == exp
     
 if __name__ == '__main__':
     main()

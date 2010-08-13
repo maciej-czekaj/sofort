@@ -20,4 +20,4 @@ while n >= 1 {
 if factorial / 2 >= 3*2 
     print factorial / 2
 else
-    print factorial 
+    print factorial / 2 + 3 
