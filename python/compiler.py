@@ -74,6 +74,21 @@ class Location:
         self.store = store_func
 
 
+class ASTParser:
+    ''' Parses AST tree and produces Simple-IR
+    '''
+
+    def __init__(self,ast):
+        self.root = ast
+    
+    def parse(self):
+        for func in self.root:
+            self.visit_func(func)
+    
+    def visit_func(self,func):
+        assert func[0] == 'FUNC'
+        
+        
 class SofortParser:
 
     def __init__(self,scanner):
@@ -109,7 +124,7 @@ class SofortParser:
             stat_list.append( self.Statement() )
         if self.token is not EOF:
             raise ParserException('EOF')
-        return stat_list
+        return [('FUNC','main','int',[],('BLOCK',stat_list))]
             
     def Statement(self):
         if isinstance(self.token,Ident):
