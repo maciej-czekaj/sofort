@@ -1,0 +1,11 @@
+str = "ala ma kota"
+print str
+str[10] = '@'
+print str
+ch = 'a'
+print ch
+print "mama"
+i=0 while i<11 { 
+    print str[i]
+    i = i + 1
+}

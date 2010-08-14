@@ -67,6 +67,8 @@ RELOPS = {
     '!=' : 'ne',
 }
 
+PRIMITIVE_TYPES = set(['int','char','string'])
+
 class Location:
 
     def __init__(self,type,store_func):
@@ -93,6 +95,7 @@ class SofortParser:
 
     def __init__(self,scanner):
         self.scanner = scanner
+        self.namespace = Namespace()
         self.next()
 
     def next(self):
@@ -120,6 +123,7 @@ class SofortParser:
 
     def _Top(self):
         stat_list = []
+        self.namespace.begin_scope()
         while self.token is not EOF:
             stat_list.append( self.Statement() )
         if self.token is not EOF:
@@ -178,7 +182,11 @@ class SofortParser:
         lval = self.Lvalue()
         self.expect('=')
         expr = self.Expression()
-        return 'ASSIGN',lval,expr
+        var = lval[1]
+        if self.namespace.get_var(var):
+            return 'ASSIGN',lval,expr
+        self.namespace.add_var(var)
+        return 'ASSIGN_NEW',lval,expr
  
     def Lvalue(self):
         id = self.token.value
@@ -262,13 +270,14 @@ class SofortParser:
         return expr
 
     def VarOrFunc(self):
-            var = self.token.value
-            self.next()
-            if self.match('['): # array element
-                index = self.Expression()
-                self.expect(']')
-                return 'INDEX',var,index
-            return 'ID',var
+        var = self.token.value
+        self.check_var(var)
+        self.next()
+        if self.match('['): # array element
+            index = self.Expression()
+            self.expect(']')
+            return 'INDEX',var,index
+        return 'ID',var
         
             
     def ArrayConstructor(self):
@@ -289,15 +298,42 @@ class SofortParser:
         return 'ARRAY_CONS',init_list
         
     def Type(self):
-        if self.token in ['int','char']:
-            tok = self.token
+        type_desc = []
+        while self.match('[]'):
+            type_desc.append('[')
+        if self.token in PRIMITIVE_TYPES:
+            type_desc.append( self.token.value )
         else:
             raise ParserException('Expected type, found %s' % str(self.token),*self.scanner.pos())
         self.next()
-        return tok
+        return ('TYPE',type_desc)
+
+    def check_var(self,name):
+        if not self.namespace.get_var(name):
+            raise ParserException('Unknown variable %s' % name,*self.scanner.pos())
 
 
+class Namespace:
+
+    def __init__(self):
+        self.scope = []
         
+    def get_var(self,name):
+        for s in reversed(self.scope):
+            if name in s:
+                return True
+        return False
+
+    def add_var(self,name):
+        self.scope[-1].add(name)
+        
+    def begin_scope(self):
+        self.scope.append(set())
+        
+    def end_scope(self):
+        del self.scope[-1]
+
+
 class Parser:
 
     def __init__(self,scanner):
