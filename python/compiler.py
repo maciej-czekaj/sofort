@@ -98,12 +98,21 @@ class ASTParser:
     def visit_func(self,func):
         assert func[0] == 'FUNC'
         _f,name,ret_type,params,block = func
-
+        ret_type = self.Type(ret_type)
+        func_params = [] # TODO
+        body = self.visit_func_block(block)
+        func_hdr = ('func',name,ret_type.ir_type,func_params)
+        
+        
     def Type(self,type):
         typelist = type[1]
-        
-        
-        
+        type = TYPE_MAP[typelist[-1]]() # Construct the type
+        for t in reverse(typelist[:-1]):
+            if t != '[':
+                raise ParserException('Illegal type %s' % str(type))
+            type = DynamicArray(type)
+        return type
+    
 class SofortParser:
 
     def __init__(self,scanner):
