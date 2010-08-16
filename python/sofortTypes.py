@@ -39,6 +39,8 @@ class ComplexType(Type):
     for indirect access.
     '''
 
+    ir_type = 'ptr'
+    
     def store(self,emitter,stack_index):
         # Store new pointer
         emitter.store_var_pointer(stack_index)        
@@ -188,7 +190,8 @@ class IntegralOps:
 class Int(BasicType,IntegralOps):
 
     name = 'int'
-
+    ir_type = 'i32'
+    
     def __init__(self):
         self.sizeof = WORD
         self.stack_size = 1        
@@ -205,7 +208,8 @@ class Int(BasicType,IntegralOps):
 class Char(BasicType,IntegralOps):
 
     name = 'char'
-
+    ir_type = 'i8'
+    
     def __init__(self):
         self.sizeof = 1
         self.stack_size = 1

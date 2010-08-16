@@ -76,12 +76,20 @@ class Location:
         self.store = store_func
 
 
+TYPE_MAP = {
+    'int' : Int,
+    'char' : Char,
+    'string' : String,
+    '[' : DynamicArray,
+}
+        
 class ASTParser:
     ''' Parses AST tree and produces Simple-IR
     '''
 
     def __init__(self,ast):
         self.root = ast
+        self.out = sys.stdout
     
     def parse(self):
         for func in self.root:
@@ -89,6 +97,11 @@ class ASTParser:
     
     def visit_func(self,func):
         assert func[0] == 'FUNC'
+        _f,name,ret_type,params,block = func
+
+    def Type(self,type):
+        typelist = type[1]
+        
         
         
 class SofortParser:
@@ -128,7 +141,7 @@ class SofortParser:
             stat_list.append( self.Statement() )
         if self.token is not EOF:
             raise ParserException('EOF')
-        return [('FUNC','main','int',[],('BLOCK',stat_list))]
+        return [('FUNC','main',('TYPE',['int']),[],('BLOCK',stat_list))]
             
     def Statement(self):
         if isinstance(self.token,Ident):
@@ -320,15 +333,16 @@ class Namespace:
         
     def get_var(self,name):
         for s in reversed(self.scope):
-            if name in s:
-                return True
-        return False
+            var = s.get(name)
+            if var:
+                return var
+        return None
 
-    def add_var(self,name):
-        self.scope[-1].add(name)
+    def add_var(self,name,var=True):
+        self.scope[-1][name] = var
         
     def begin_scope(self):
-        self.scope.append(set())
+        self.scope.append({})
         
     def end_scope(self):
         del self.scope[-1]
