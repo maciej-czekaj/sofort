@@ -1,5 +1,8 @@
 
-class ScannerException(Exception):
+class AppException(Exception):
+    pass
+
+class ScannerException(AppException):
     def __init__(self,msg,scanner):
         file,line,col,buf = scanner.pos()
         s = '%s:%s:%s: %s' % (file,line,col,msg)
@@ -110,6 +113,7 @@ class Scanner:
         self.line = 1
         self.col = 0
         self.buffer = []
+        self.content = [self.buffer]
         self.getchar()
         
     def pos(self):
@@ -124,7 +128,7 @@ class Scanner:
         self.line += 1
         self.col = 0
         self.buffer = []
-    
+        self.content.append(self.buffer)
         
     def skipline(self):
         while self.char != '\n':

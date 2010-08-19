@@ -10,7 +10,7 @@ from scanner import *
 from sofortTypes import *
 
 
-class ParserException(Exception):
+class ParserException(AppException):
     
     def __init__(self,msg,file='',line='',col='',buffer=None):
         s = '%s:%s:%s: %s' % (file,line,col,msg)
@@ -112,7 +112,16 @@ class ASTParser:
                 raise ParserException('Illegal type %s' % str(type))
             type = DynamicArray(type)
         return type
+
+
+class ASTNode(tuple):
     
+    def __init__(self,tp,text=None):
+        print tp
+        super(ASTNode,self).__init__(self,tp)
+        self.text = text
+
+
 class SofortParser:
 
     def __init__(self,scanner):
@@ -151,8 +160,9 @@ class SofortParser:
         if self.token is not EOF:
             raise ParserException('EOF')
         return [('FUNC','main',('TYPE',['int']),[],('BLOCK',stat_list))]
-            
+   
     def Statement(self):
+        first_line = self.scanner.line
         if isinstance(self.token,Ident):
             stat = self.Assignment()
         elif self.token == 'print':
@@ -164,9 +174,9 @@ class SofortParser:
         elif self.token == '{':
             stat = self.Block()
         else:
-            raise ParserException('Expected statement',*self.scanner.pos())
-        #print stat
-        return stat
+            raise ParserException('Expected statement',*self.scanner.pos())  
+        #text=self.scanner.content[first_line]
+        return ASTNode(stat)
 
     def While(self):
         self.next()
@@ -707,6 +717,7 @@ def main():
     pprint.pprint(ast)
     asm.close()
     src.close()
+    print (parser.scanner.content)
     #do_gcc(asmfile,binfile)
     
     
