@@ -100,14 +100,14 @@ class ASTParser:
         _f,name,ret_type,params,block = func
         ret_type = self.Type(ret_type)
         func_params = [] # TODO
-        body = self.visit_func_block(block)
+        #body = self.visit_func_block(block)
         func_hdr = ('func',name,ret_type.ir_type,func_params)
-        
+        print func_hdr
         
     def Type(self,type):
         typelist = type[1]
         type = TYPE_MAP[typelist[-1]]() # Construct the type
-        for t in reverse(typelist[:-1]):
+        for t in reversed(typelist[:-1]):
             if t != '[':
                 raise ParserException('Illegal type %s' % str(type))
             type = DynamicArray(type)
@@ -118,7 +118,7 @@ class ASTNode(tuple):
     
     def __init__(self,tp,text=None):
         print tp
-        super(ASTNode,self).__init__(self,tp)
+        super(ASTNode,self).__init__(tp)
         self.text = text
 
 
@@ -717,9 +717,10 @@ def main():
     pprint.pprint(ast)
     asm.close()
     src.close()
-    print (parser.scanner.content)
+    #print (parser.scanner.content)
     #do_gcc(asmfile,binfile)
-    
+    ir = ASTParser(ast)
+    ir.parse()
     
 if __name__ == '__main__':
     main()
