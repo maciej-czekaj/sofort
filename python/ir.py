@@ -59,6 +59,9 @@ class ASTParser:
         store_ir = lval.loc.store(expr.loc)
         return expr.ir + lval.ir + store_ir
 
+    def visit_ID(stat):
+        id = stat[1]
+        
 
 class IRNode:
     
@@ -76,12 +79,11 @@ class VarLocation(IRLocation):
         self.id = id
         self.type = type
     
-    def store(self,from_loc):
-        load_nod = from_loc.load(self.type) 
-        return load_nod.ir + CP(load_nod.loc,self)
+    def store(self,from_loc): 
+        return from_loc.load(self)
             
-    def load(self):
-        return IRNode(self)
+    def load(self,to_loc):
+        return []
 
 class MemLocation(IRLocation):
 
@@ -91,17 +93,19 @@ class MemLocation(IRLocation):
         self.offset = offset
     
     def store(self,from_loc):
-        load_nod = from_loc.load()
-        return load_nod.ir + ST(load_nod.loc,self)
+        return ST(from_loc,self)
 
-    def load(self,type):
-        return LD(
+    def load(self,to_loc):
+        return LD(self,to_loc)
 #IR        
         
 def CP(from_loc,to_loc):
     return [('cp',from_loc.type,from_loc.id,to_loc.id)]
         
 def ST(from_loc,to_loc):
-    return [('st',from_loc.type,from_loc_id,to_loc.id)]
+    return [('st',from_loc.type,from_loc.id,to_loc.id)]
         
-        
+def LD(from_loc,to_loc):
+    return [('ld',to_loc.type,from_loc.id,to_loc.id)]
+
+
